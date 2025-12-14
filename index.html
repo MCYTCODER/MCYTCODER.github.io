@@ -3,194 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>2D Minecraft Multiplayer Prototype</title>
+    <title>3D Horror Game Prototype</title>
     <style>
-        /* BASE STYLES & SCREEN LOCK */
         body {
             margin: 0;
-            overflow: hidden; /* Prevent page scroll */
-            background-color: #5d9e5d; /* Sky/Grass color */
+            overflow: hidden;
+            background-color: #000;
             font-family: Arial, sans-serif;
-            touch-action: manipulation; /* Screen lock for touch devices */
+            touch-action: manipulation; /* Screen lock */
         }
-        #game-container {
-            width: 100vw;
-            height: 100vh;
-            position: relative;
+        canvas {
+            display: block;
         }
-
-        /* GAME WORLD */
-        #world {
+        /* Overlay for UI elements like a simple message */
+        #overlay {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: grid;
-            grid-template-columns: repeat(16, 1fr); /* 16 columns */
-            grid-template-rows: repeat(12, 1fr); /* 12 rows */
-            box-sizing: border-box;
-        }
-
-        .block {
-            border: 1px solid rgba(0, 0, 0, 0.1);
-            box-sizing: border-box;
-            font-size: 0.8em;
-            font-weight: bold;
-            color: white;
-            text-shadow: 1px 1px 1px black;
-        }
-
-        /* Block Textures (Example) */
-        .grass { background-color: #71b86d; }
-        .dirt { background-color: #8b5a2b; }
-        .stone { background-color: #7d7d7d; }
-        .sky { background-color: #5d9e5d; border: none; } /* Match background for empty space */
-
-        /* PLAYER SPRITES */
-        .player-sprite {
-            position: absolute;
-            width: 50px; /* Example size */
-            height: 50px;
-            background-color: #f000f0; /* Pink for visibility */
-            border: 2px solid #555;
-            border-radius: 5px;
-            transition: top 0.1s linear, left 0.1s linear; /* Smooth movement */
-            pointer-events: none; /* Don't block clicks */
-            display: flex;
-            align-items: flex-end;
-            justify-content: center;
-        }
-        .player-label {
-            position: absolute;
-            top: -15px;
-            font-size: 0.7em;
-            color: #fff;
-            background: rgba(0, 0, 0, 0.6);
-            padding: 2px 4px;
-            border-radius: 3px;
-            white-space: nowrap;
-        }
-
-        /* UI ELEMENTS */
-        #ui-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none; /* Allows clicks to pass through to the world unless hitting a button */
-        }
-
-        /* Inventory Bar (Bottom Center Hotbar) */
-        #inventory-bar {
-            position: absolute;
-            bottom: 20px;
+            top: 20px;
             left: 50%;
             transform: translateX(-50%);
-            display: flex;
-            gap: 5px;
-            pointer-events: auto;
-            background: rgba(0, 0, 0, 0.5);
-            padding: 5px;
-            border-radius: 8px;
-        }
-
-        .slot {
-            width: 50px;
-            height: 50px;
-            border: 3px solid #666;
-            background: rgba(255, 255, 255, 0.2);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 0.7em;
+            color: red;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
             border-radius: 5px;
-        }
-
-        /* D-Pad/Joystick (Bottom Left) */
-        #d-pad {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            pointer-events: auto;
-            display: grid;
-            grid-template-columns: repeat(3, 50px);
-            grid-template-rows: repeat(3, 50px);
-            gap: 5px;
-        }
-        .d-pad-btn {
-            background-color: rgba(100, 100, 100, 0.7);
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5em;
-            border-radius: 8px;
-            user-select: none;
-            cursor: pointer;
-        }
-        .d-pad-btn:active {
-            background-color: rgba(150, 150, 150, 0.9);
-        }
-
-        /* Buttons (Top Left) */
-        #top-buttons {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-            pointer-events: auto;
-        }
-
-        .ui-button {
-            padding: 8px 15px;
-            background-color: #3f51b5;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-weight: bold;
-            cursor: pointer;
-            text-transform: uppercase;
+            font-size: 1.2em;
+            z-index: 10;
         }
     </style>
 </head>
 <body>
+    <div id="overlay">Welcome to the dark room...</div>
 
-    <div id="game-container">
-        <div id="world">
-            </div>
-        
-        <div id="player-sprites-container"></div> 
-
-        <div id="ui-overlay">
-            
-            <div id="top-buttons">
-                <button id="profile-btn" class="ui-button">👤 Profile</button>
-                <button id="inventory-btn" class="ui-button">📦 Inventory</button>
-                <button id="crafting-btn" class="ui-button">🛠️ Craft</button>
-            </div>
-
-            <div id="inventory-bar">
-                <div class="slot" data-index="0">Axe</div>
-                <div class="slot" data-index="1"></div>
-                <div class="slot" data-index="2"></div>
-                <div class="slot" data-index="3"></div>
-                <div class="slot" data-index="4"></div>
-            </div>
-
-            <div id="d-pad">
-                <div class="d-pad-btn" style="grid-column: 2; grid-row: 1;" data-action="up">▲</div>
-                <div class="d-pad-btn" style="grid-column: 1; grid-row: 2;" data-action="left">◀</div>
-                <div class="d-pad-btn" style="grid-column: 3; grid-row: 2;" data-action="right">▶</div>
-                <div class="d-pad-btn" style="grid-column: 2; grid-row: 3;" data-action="down">▼</div>
-            </div>
-            
-        </div>
-    </div>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.137.0/build/three.min.js"></script>
 
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
@@ -210,282 +53,117 @@
         const app = firebase.initializeApp(firebaseConfig);
         const database = app.database();
         
-        // Firebase references for game data
-        const USERS_REF = database.ref('mcytcoder_users');
-        const PLAYERS_REF = database.ref('mcytcoder_game/players');
+        // Simple reference for future horror game tracking (e.g., survival data)
+        const GAME_REF = database.ref('horror_game_data');
+
+        // --- 2. THREE.JS 3D SETUP ---
+        let scene, camera, renderer;
         
-        let localUser = {
-            id: null,
-            username: 'Guest',
-            x: 0, 
-            y: 0, 
-            inventory: { Axe: 1, Dirt: 0, Stone: 0 }
-        };
+        function init3D() {
+            // Setup Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x000000); // Black background for horror
 
-        // --- 2. GAME SETUP ---
-        const worldElement = document.getElementById('world');
-        const playerSpritesContainer = document.getElementById('player-sprites-container');
-        const WORLD_WIDTH = 16;
-        const WORLD_HEIGHT = 12;
-        const TILE_SIZE = window.innerWidth / WORLD_WIDTH; // Calculate tile size dynamically
-        const INVENTORY = localUser.inventory;
+            // Setup Camera (Perspective)
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 1.6, 5); // Default player height (1.6m) and position
 
-        // Simple world generation
-        function generateWorld() {
-            worldElement.style.gridTemplateColumns = `repeat(${WORLD_WIDTH}, 1fr)`;
-            worldElement.style.gridTemplateRows = `repeat(${WORLD_HEIGHT}, 1fr)`;
+            // Setup Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
             
-            for (let y = 0; y < WORLD_HEIGHT; y++) {
-                for (let x = 0; x < WORLD_WIDTH; x++) {
-                    const block = document.createElement('div');
-                    block.classList.add('block');
-                    block.dataset.x = x;
-                    block.dataset.y = y;
-                    
-                    let type;
-                    if (y < 4) {
-                        type = 'sky';
-                    } else if (y === 4) {
-                        type = 'grass';
-                    } else if (y < 7) {
-                        type = 'dirt';
-                    } else {
-                        type = 'stone';
-                    }
+            // --- CREATE THE HORROR ROOM ---
 
-                    block.classList.add(type);
-                    block.dataset.type = type;
-                    worldElement.appendChild(block);
-                }
-            }
-        }
+            // Floor
+            const floorGeometry = new THREE.PlaneGeometry(10, 10);
+            // Use a dark, muddy color for the floor
+            const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8, metalness: 0.1 }); 
+            const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            floor.rotation.x = -Math.PI / 2; // Rotate to lie flat
+            floor.receiveShadow = true;
+            scene.add(floor);
 
-        // Helper to update player sprite position based on grid coordinates
-        function updatePlayerSprite(spriteElement, x, y) {
-            spriteElement.style.left = `${x * TILE_SIZE}px`;
-            spriteElement.style.top = `${y * TILE_SIZE}px`;
-        }
+            // Walls (Basic cubes for simplicity)
+            const wallMaterial = new THREE.MeshStandardMaterial({ color: 0x444444, roughness: 0.9 });
+            const wallDepth = 0.1;
 
-        // --- 3. FIREBASE / USER MANAGEMENT & MULTIPLAYER ---
+            // Back Wall
+            const backWall = new THREE.Mesh(new THREE.BoxGeometry(10, 5, wallDepth), wallMaterial);
+            backWall.position.set(0, 2.5, -5);
+            scene.add(backWall);
 
-        function handleUserLogin() {
-            localUser.id = localStorage.getItem('mcyt_user_id') || USERS_REF.push().key;
-            localStorage.setItem('mcyt_user_id', localUser.id);
+            // Left Wall
+            const leftWall = new THREE.Mesh(new THREE.BoxGeometry(wallDepth, 5, 10), wallMaterial);
+            leftWall.position.set(-5, 2.5, 0);
+            scene.add(leftWall);
             
-            // Check for existing profile
-            USERS_REF.child(localUser.id).once('value', (snapshot) => {
-                const userData = snapshot.val();
-                if (!userData || !userData.username) {
-                    promptForUsername();
-                } else {
-                    localUser.username = userData.username;
-                    // Initial position set for new session
-                    localUser.x = 2; 
-                    localUser.y = 3;
-                    
-                    // Set up player presence and initial position in the game world
-                    setupPlayerPresence();
-                    alert(`Welcome back, ${localUser.username}!`);
-                }
-            });
+            // Right Wall
+            const rightWall = new THREE.Mesh(new THREE.BoxGeometry(wallDepth, 5, 10), wallMaterial);
+            rightWall.position.set(5, 2.5, 0);
+            scene.add(rightWall);
+
+            // --- LIGHTING (Horror atmosphere requires low light) ---
+
+            // Ambient Light (Very low background light)
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.1); 
+            scene.add(ambientLight);
+
+            // Point Light (Simulating a single, weak bulb or flashlight)
+            const pointLight = new THREE.PointLight(0xffaa00, 1.5, 10); // Weak yellow/orange light
+            pointLight.position.set(0, 3, 0);
+            scene.add(pointLight);
+
+            // --- FOG (For atmospheric horror effect) ---
+            scene.fog = new THREE.Fog(0x000000, 1, 15); // Black fog that starts close
+
+            // --- EXAMPLE OBJECT (Something creepy) ---
+            const boxGeometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+            const boxMaterial = new THREE.MeshStandardMaterial({ color: 0x880000 }); // Dark Red/Blood color
+            const creepyBox = new THREE.Mesh(boxGeometry, boxMaterial);
+            creepyBox.position.set(2, 0.25, -3); // Place it on the floor
+            scene.add(creepyBox);
         }
+
+        // --- 3. GAME LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // This is where all future game logic will go (e.g., enemy movement, door opening)
+            
+            renderer.render(scene, camera);
+        }
+
+        // Handle window resizing
+        window.addEventListener('resize', onWindowResize, false);
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // --- 4. FIREBASE LOGIC (Placeholder) ---
+        function sendHeartbeat() {
+             // Example function: update a last-seen timestamp to track survival time
+             const userId = localStorage.getItem('horror_user_id') || `user_${Math.random().toString(36).substring(2, 5)}`;
+             localStorage.setItem('horror_user_id', userId);
+
+             GAME_REF.child('active_players').child(userId).set({
+                 lastSeen: firebase.database.ServerValue.TIMESTAMP
+             });
+             
+             // Remove when user disconnects
+             GAME_REF.child('active_players').child(userId).onDisconnect().remove();
+        }
+
+        // --- 5. INITIALIZATION ---
+        init3D();
+        animate();
+        sendHeartbeat(); // Start tracking player presence
         
-        function promptForUsername() {
-            const newUsername = prompt("Please enter a unique username:", localUser.username);
-            if (newUsername && newUsername.trim() !== '') {
-                // Simple check for taken username
-                USERS_REF.orderByChild('username').equalTo(newUsername).once('value', (snapshot) => {
-                    if (snapshot.exists()) {
-                        alert("That username is already taken. Please try another.");
-                        promptForUsername();
-                    } else {
-                        localUser.username = newUsername;
-                        USERS_REF.child(localUser.id).set({
-                            username: newUsername,
-                            friends: {},
-                            createdAt: firebase.database.ServerValue.TIMESTAMP
-                        });
-                        // Initial position set after successful username creation
-                        localUser.x = 2; 
-                        localUser.y = 3;
-                        setupPlayerPresence();
-                        alert(`Username set to: ${newUsername}`);
-                    }
-                });
-            } else {
-                // Fallback for guest, but multiplayer won't work well without ID/Name
-                localUser.id = 'guest_' + Math.random().toString(36).substring(2, 5);
-                localUser.x = 2; 
-                localUser.y = 3;
-                setupPlayerPresence();
-            }
-        }
+        // Optional: Send heartbeat every 10 seconds to keep track of active user
+        setInterval(sendHeartbeat, 10000); 
 
-        function setupPlayerPresence() {
-            // Write current position to Firebase
-            PLAYERS_REF.child(localUser.id).set({
-                username: localUser.username,
-                x: localUser.x,
-                y: localUser.y
-            });
-
-            // Remove player data when they disconnect (browser close/refresh)
-            PLAYERS_REF.child(localUser.id).onDisconnect().remove();
-            
-            // Start listening for all player updates
-            listenForOtherPlayers();
-        }
-
-        function listenForOtherPlayers() {
-            PLAYERS_REF.on('value', (snapshot) => {
-                playerSpritesContainer.innerHTML = ''; // Clear all sprites
-
-                snapshot.forEach((childSnapshot) => {
-                    const player = childSnapshot.val();
-                    const playerId = childSnapshot.key;
-                    
-                    const spriteId = `sprite-${playerId}`;
-                    let spriteElement = document.getElementById(spriteId);
-                    
-                    if (!spriteElement) {
-                        spriteElement = document.createElement('div');
-                        spriteElement.id = spriteId;
-                        spriteElement.classList.add('player-sprite');
-                        playerSpritesContainer.appendChild(spriteElement);
-                        
-                        const label = document.createElement('div');
-                        label.classList.add('player-label');
-                        label.textContent = player.username;
-                        spriteElement.appendChild(label);
-                        
-                        // Highlight local player
-                        if (playerId === localUser.id) {
-                             spriteElement.style.borderColor = 'yellow';
-                        }
-                    }
-                    
-                    // Update sprite position
-                    updatePlayerSprite(spriteElement, player.x, player.y);
-                });
-            });
-        }
-
-        // --- 4. PLAYER MOVEMENT & GAME ACTIONS ---
-
-        // Function to move the player
-        function movePlayer(dx, dy) {
-            const newX = Math.max(0, Math.min(WORLD_WIDTH - 1, localUser.x + dx));
-            const newY = Math.max(0, Math.min(WORLD_HEIGHT - 1, localUser.y + dy));
-            
-            // Simple boundary check (no collision with blocks yet)
-            if (newX !== localUser.x || newY !== localUser.y) {
-                localUser.x = newX;
-                localUser.y = newY;
-                
-                // Update Firebase
-                PLAYERS_REF.child(localUser.id).update({
-                    x: localUser.x,
-                    y: localUser.y
-                });
-            }
-        }
-
-        // Handles a click on a block to "mine"
-        worldElement.addEventListener('click', (e) => {
-            const targetBlock = e.target;
-            if (targetBlock.classList.contains('block')) {
-                mineBlock(targetBlock);
-            }
-        });
-
-        function mineBlock(blockElement) {
-            const blockType = blockElement.dataset.type;
-            
-            if (blockType !== 'sky') {
-                // Check if player is adjacent to the block (simple mining check)
-                const blockX = parseInt(blockElement.dataset.x);
-                const blockY = parseInt(blockElement.dataset.y);
-                const isAdjacent = (Math.abs(localUser.x - blockX) <= 1 && Math.abs(localUser.y - blockY) <= 1);
-                
-                if (isAdjacent) {
-                    // Mining Simulation
-                    blockElement.classList.remove(blockType);
-                    blockElement.classList.add('sky');
-                    blockElement.dataset.type = 'sky';
-
-                    // Add item to Inventory
-                    if (INVENTORY[blockType] !== undefined) {
-                        INVENTORY[blockType]++;
-                    } else {
-                        INVENTORY[blockType] = 1;
-                    }
-                    
-                    updateInventoryUI();
-                    console.log(`Mined 1 ${blockType}.`);
-                } else {
-                    alert("You must be closer to the block to mine it!");
-                }
-            }
-        }
-        
-        // --- 5. UI/INVENTORY LOGIC ---
-
-        const inventorySlots = document.querySelectorAll('.slot');
-
-        function updateInventoryUI() {
-            inventorySlots.forEach((slot, index) => {
-                const itemKeys = Object.keys(INVENTORY).filter(key => INVENTORY[key] > 0);
-                const itemName = itemKeys[index];
-                
-                if (itemName) {
-                    slot.textContent = `${itemName.substring(0, 1).toUpperCase()} (${INVENTORY[itemName]})`;
-                } else {
-                    slot.textContent = '';
-                }
-            });
-        }
-        
-        // --- 6. BUTTON HANDLERS ---
-
-        document.getElementById('profile-btn').addEventListener('click', () => {
-            alert(`
-                --- Your Profile ---
-                Username: ${localUser.username}
-                X/Y: ${localUser.x}/${localUser.y}
-                (Future: Send/Accept Friend Requests here)
-            `);
-        });
-
-        document.getElementById('inventory-btn').addEventListener('click', () => {
-            const items = Object.keys(INVENTORY).map(key => `${key}: ${INVENTORY[key]}`).join('\n');
-            alert(`
-                --- Inventory ---
-                ${items || 'Empty! Go mining.'}
-            `);
-        });
-
-        document.getElementById('crafting-btn').addEventListener('click', () => {
-            alert("Crafting System: Placeholder.");
-        });
-
-        // D-Pad Handler (Movement)
-        document.getElementById('d-pad').addEventListener('click', (e) => {
-            const action = e.target.dataset.action;
-            if (!action) return;
-            
-            switch(action) {
-                case 'up': movePlayer(0, -1); break;
-                case 'down': movePlayer(0, 1); break;
-                case 'left': movePlayer(-1, 0); break;
-                case 'right': movePlayer(1, 0); break;
-            }
-        });
-        
-        // --- 7. INITIALIZATION ---
-
-        generateWorld();
-        handleUserLogin();
-        updateInventoryUI();
     </script>
 </body>
 </html>
