@@ -3,194 +3,92 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Teen Fitness – Calisthenics</title>
+<title>Mini Minecraft 2D</title>
 <style>
-  /* Global Styles */
   body {
-    margin: 0;
-    font-family: Arial, sans-serif;
-    background-color: #f7f7f7; /* light base */
-    color: #111111;
+    margin:0;
+    background:#87CEEB; /* sky blue */
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+    font-family: Arial,sans-serif;
   }
-  h1,h2,h3 { margin: 0 0 15px 0; }
-  .container {
-    max-width: 600px;
-    margin: 40px auto;
-    background: #ffffff;
-    padding: 30px;
-    border-radius: 15px;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
-  }
-  label {
-    display: block;
-    margin: 10px 0 5px 0;
-    font-weight: bold;
-  }
-  input, select {
-    width: 100%;
-    padding: 10px 12px;
-    margin-bottom: 15px;
-    border-radius: 8px;
-    border: 1px solid #ccc;
-    font-size: 16px;
-  }
-  button {
-    width: 100%;
-    padding: 12px;
-    border: none;
-    border-radius: 8px;
-    font-size: 18px;
-    font-weight: bold;
-    cursor: pointer;
-    background: linear-gradient(90deg, #00C4FF, #FF6D1F); /* two-color gradient */
-    color: #fff;
-    transition: transform 0.2s;
-  }
-  button:hover {
-    transform: scale(1.05);
-  }
-  .workout-plan {
-    margin-top: 20px;
-  }
-  .exercise {
-    background: #f0f0f0;
-    padding: 12px;
-    border-radius: 10px;
-    margin-bottom: 12px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-  .exercise-name { font-weight: bold; }
-  @media (max-width: 650px) {
-    .container { margin: 20px; padding: 20px; }
-    button { font-size: 16px; }
+  canvas {
+    border:2px solid #000;
+    background:#87CEEB;
   }
 </style>
 </head>
 <body>
-
-<div class="container" id="form-container">
-  <h1>Teen Fitness Calisthenics</h1>
-  <p>Enter your info and get a personalized workout plan:</p>
-
-  <label for="age">Age</label>
-  <input type="number" id="age" min="10" max="18" placeholder="Enter your age">
-
-  <label for="height">Height (cm)</label>
-  <input type="number" id="height" placeholder="Enter your height">
-
-  <label for="weight">Weight (kg)</label>
-  <input type="number" id="weight" placeholder="Enter your weight">
-
-  <label for="goal">Fitness Goal</label>
-  <select id="goal">
-    <option value="strength">Strength</option>
-    <option value="endurance">Endurance</option>
-    <option value="flexibility">Flexibility</option>
-  </select>
-
-  <label for="level">Experience Level</label>
-  <select id="level">
-    <option value="beginner">Beginner</option>
-    <option value="intermediate">Intermediate</option>
-    <option value="advanced">Advanced</option>
-  </select>
-
-  <button onclick="generateWorkout()">Generate Workout</button>
-</div>
-
-<div class="container workout-plan" id="workout-container" style="display:none;">
-  <h2>Your Personalized Workout</h2>
-  <div id="exercises"></div>
-  <button onclick="startWorkout()">Start Workout</button>
-</div>
+<canvas id="gameCanvas" width="640" height="480"></canvas>
 
 <script>
-  // Predefined exercises for each goal and level
-  const exerciseDB = {
-    strength: {
-      beginner: [
-        {name: "Push-ups", sets:3, reps:8},
-        {name: "Bodyweight Squats", sets:3, reps:10},
-        {name: "Plank", sets:3, reps:"30 sec"},
-      ],
-      intermediate: [
-        {name: "Diamond Push-ups", sets:3, reps:10},
-        {name: "Lunges", sets:3, reps:12},
-        {name: "Side Plank", sets:3, reps:"40 sec"},
-      ],
-      advanced: [
-        {name: "Pistol Squats", sets:3, reps:8},
-        {name: "Handstand Push-ups", sets:3, reps:6},
-        {name: "Hollow Body Hold", sets:3, reps:"45 sec"},
-      ]
-    },
-    endurance: {
-      beginner: [
-        {name: "Jumping Jacks", sets:3, reps:30},
-        {name: "Mountain Climbers", sets:3, reps:20},
-        {name: "High Knees", sets:3, reps:30},
-      ],
-      intermediate: [
-        {name: "Burpees", sets:3, reps:15},
-        {name: "Jump Squats", sets:3, reps:20},
-        {name: "Plank Jacks", sets:3, reps:30},
-      ],
-      advanced: [
-        {name: "Tuck Jumps", sets:4, reps:20},
-        {name: "Clapping Push-ups", sets:4, reps:12},
-        {name: "Mountain Climbers Fast", sets:4, reps:40},
-      ]
-    },
-    flexibility: {
-      beginner: [
-        {name: "Forward Fold", sets:3, reps:"30 sec"},
-        {name: "Cat-Cow Stretch", sets:3, reps:"30 sec"},
-        {name: "Hip Flexor Stretch", sets:3, reps:"30 sec"},
-      ],
-      intermediate: [
-        {name: "Pigeon Pose", sets:3, reps:"40 sec"},
-        {name: "Side Stretch", sets:3, reps:"40 sec"},
-        {name: "Cobra Stretch", sets:3, reps:"40 sec"},
-      ],
-      advanced: [
-        {name: "Splits Practice", sets:3, reps:"45 sec"},
-        {name: "Bridge Pose", sets:3, reps:"45 sec"},
-        {name: "Advanced Backbend", sets:3, reps:"45 sec"},
-      ]
-    }
-  };
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
 
-  function generateWorkout(){
-    const age = document.getElementById("age").value;
-    const goal = document.getElementById("goal").value;
-    const level = document.getElementById("level").value;
+const TILE_SIZE = 32;
+const ROWS = canvas.height / TILE_SIZE;
+const COLS = canvas.width / TILE_SIZE;
 
-    if(!age || age<10 || age>18){
-      alert("Please enter a valid age between 10 and 18");
-      return;
-    }
-
-    const exercises = exerciseDB[goal][level];
-
-    const exercisesDiv = document.getElementById("exercises");
-    exercisesDiv.innerHTML = "";
-    exercises.forEach(ex => {
-      const div = document.createElement("div");
-      div.className = "exercise";
-      div.innerHTML = `<span class="exercise-name">${ex.name}</span><span>${ex.sets} sets x ${ex.reps}</span>`;
-      exercisesDiv.appendChild(div);
-    });
-
-    document.getElementById("form-container").style.display = "none";
-    document.getElementById("workout-container").style.display = "block";
+// Basic blocks: 0 = empty, 1 = dirt
+let world = [];
+for(let r=0;r<ROWS;r++){
+  world[r] = [];
+  for(let c=0;c<COLS;c++){
+    if(r > ROWS-3) world[r][c] = 1; // bottom 3 rows dirt
+    else world[r][c] = 0; // empty sky
   }
+}
 
-  function startWorkout(){
-    alert("Start your workout! Perform exercises as shown above. Stay hydrated!");
+// Player
+let player = {x:5, y:ROWS-4, color:"#FF0000"};
+
+function drawWorld(){
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      if(world[r][c] === 1){
+        ctx.fillStyle = "#8B4513"; // dirt
+        ctx.fillRect(c*TILE_SIZE, r*TILE_SIZE, TILE_SIZE, TILE_SIZE);
+        ctx.strokeStyle = "#000";
+        ctx.strokeRect(c*TILE_SIZE, r*TILE_SIZE, TILE_SIZE, TILE_SIZE);
+      } else {
+        ctx.fillStyle = "#87CEEB"; // sky
+        ctx.fillRect(c*TILE_SIZE, r*TILE_SIZE, TILE_SIZE, TILE_SIZE);
+      }
+    }
   }
+  // draw player
+  ctx.fillStyle = player.color;
+  ctx.fillRect(player.x*TILE_SIZE, player.y*TILE_SIZE, TILE_SIZE, TILE_SIZE);
+}
+
+drawWorld();
+
+// Keyboard controls
+document.addEventListener("keydown", (e)=>{
+  if(e.key === "ArrowLeft" && player.x>0) player.x--;
+  if(e.key === "ArrowRight" && player.x<COLS-1) player.x++;
+  if(e.key === "ArrowUp" && player.y>0) player.y--;
+  if(e.key === "ArrowDown" && player.y<ROWS-1) player.y++;
+  drawWorld();
+});
+
+// Place/Broke blocks
+document.addEventListener("keydown",(e)=>{
+  if(e.key==="z"){ // break block under player
+    if(world[player.y+1] && world[player.y+1][player.x]===1){
+      world[player.y+1][player.x]=0;
+      drawWorld();
+    }
+  }
+  if(e.key==="x"){ // place block under player
+    if(world[player.y+1] && world[player.y+1][player.x]===0){
+      world[player.y+1][player.x]=1;
+      drawWorld();
+    }
+  }
+});
 </script>
-
 </body>
 </html>
