@@ -1,111 +1,312 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Global VyXo Chat</title>
-<style>
-  body { margin:0; font-family: Arial, sans-serif; background:#181818; color:#F1F1F1; display:flex; flex-direction:column; height:100vh; }
-  header { background:#202020; padding:10px 20px; display:flex; justify-content:space-between; align-items:center; }
-  h1 { margin:0; font-size:1.5em; }
-  #chatContainer { flex:1; display:flex; flex-direction:column; padding:10px; }
-  #messages { flex:1; overflow-y:auto; padding:10px; border:1px solid #444; border-radius:8px; margin-bottom:10px; }
-  .message { margin:5px 0; word-wrap:break-word; }
-  #chatInputContainer { display:flex; gap:5px; }
-  #chatInput { flex:1; padding:8px; border-radius:4px; border:1px solid #444; background:#202020; color:#F1F1F1; }
-  button { padding:8px 12px; border:none; border-radius:4px; cursor:pointer; background:#00C4FF; color:white; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multiplayer Tic-Tac-Toe</title>
+    <style>
+        /* CSS for the Tic-Tac-Toe Game */
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f4f4f9;
+        }
+
+        #game-info {
+            font-size: 1.2em;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        #game-board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-template-rows: repeat(3, 100px);
+            gap: 5px;
+            background-color: #333;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .cell {
+            width: 100px;
+            height: 100px;
+            background-color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            color: #333;
+        }
+
+        .cell:hover:empty {
+            background-color: #e0e0e0;
+        }
+
+        .cell.X {
+            color: #4CAF50; /* Green for X */
+        }
+
+        .cell.O {
+            color: #2196F3; /* Blue for O */
+        }
+
+        #reset-button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 1em;
+            cursor: pointer;
+            background-color: #ff9800;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+
+        #reset-button:hover {
+            background-color: #e68a00;
+        }
+    </style>
 </head>
 <body>
 
-<header>
-  <h1>Global VyXo Chat</h1>
-  <span id="usernameDisplay"></span>
-</header>
+    <div id="game-info">
+        <p id="status-message">Connecting to game...</p>
+        <p id="player-status"></p>
+    </div>
 
-<div id="chatContainer">
-  <div id="messages"></div>
-  <div id="chatInputContainer">
-    <input id="chatInput" placeholder="Type your message...">
-    <button id="sendBtn">Send</button>
-  </div>
-</div>
+    <div id="game-board">
+        <div class="cell" data-index="0"></div>
+        <div class="cell" data-index="1"></div>
+        <div class="cell" data-index="2"></div>
+        <div class="cell" data-index="3"></div>
+        <div class="cell" data-index="4"></div>
+        <div class="cell" data-index="5"></div>
+        <div class="cell" data-index="6"></div>
+        <div class="cell" data-index="7"></div>
+        <div class="cell" data-index="8"></div>
+    </div>
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
-import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
-import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
+    <button id="reset-button" style="display: none;">Start New Game</button>
 
-// --- Firebase Config ---
-const firebaseConfig = {
-  apiKey: "AIzaSyAK9yp29MbVfj5B9BsMdBagXuDE3soEvic",
-  authDomain: "vyxo-chat.firebaseapp.com",
-  projectId: "vyxo-chat",
-  storageBucket: "vyxo-chat.firebasestorage.app",
-  messagingSenderId: "624232754008",
-  appId: "1:624232754008:web:e8949ba42713bd526b932d"
-};
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
 
-// --- Initialize Firebase ---
-const app = initializeApp(firebaseConfig);
-const db = getFirestore();
-const auth = getAuth();
+    <script>
+        // --- 1. YOUR FIREBASE CONFIGURATION ---
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+          apiKey: "AIzaSyAMRPAoSdZgTBOKZkVpFoD8u8peIw8GcAg",
+          authDomain: "tic-tac-toe-998c6.firebaseapp.com",
+          databaseURL: "https://tic-tac-toe-998c6-default-rtdb.europe-west1.firebasedatabase.app",
+          projectId: "tic-tac-toe-998c6",
+          storageBucket: "tic-tac-toe-998c6.firebasestorage.app",
+          messagingSenderId: "874071203416",
+          appId: "1:874071203416:web:2b4eacc393270f2c8df42d"
+        };
 
-// --- Generate unique username ---
-let username = localStorage.getItem("vyxoGlobalUsername");
-if(!username){
-  username = "VyXoUser_" + Math.floor(Math.random()*100000);
-  localStorage.setItem("vyxoGlobalUsername", username);
-}
-document.getElementById("usernameDisplay").textContent = username;
+        // Initialize Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const database = app.database();
+        
+        // Use a fixed game ID for simplicity. All players use this game.
+        const GAME_REF = database.ref('tictactoe/game1');
 
-// --- Username color generator ---
-const usernameColors = ["#FF6D1F","#00C4FF","#FF00FF","#00FF00","#FFFF00","#FF8800","#00FFFF"];
-function getColor(name){
-  let hash=0; for(let i=0;i<name.length;i++){hash=name.charCodeAt(i)+((hash<<5)-hash);}
-  return usernameColors[Math.abs(hash)%usernameColors.length];
-}
+        // --- 2. GAME STATE VARIABLES ---
+        let localPlayer = null; // 'X' or 'O'
+        let board = Array(9).fill(null);
+        let isGameActive = false;
+        let currentPlayer = 'X';
 
-// --- DOM elements ---
-const messagesDiv = document.getElementById("messages");
-const chatInput = document.getElementById("chatInput");
-const sendBtn = document.getElementById("sendBtn");
+        // --- 3. DOM ELEMENTS ---
+        const cells = document.querySelectorAll('.cell');
+        const statusMessage = document.getElementById('status-message');
+        const playerStatus = document.getElementById('player-status');
+        const resetButton = document.getElementById('reset-button');
 
-// --- Sign in anonymously ---
-signInAnonymously(auth).catch(console.error);
+        // --- 4. FIREBASE LISTENERS (Multiplayer Logic) ---
 
-// --- Chat functionality after login ---
-onAuthStateChanged(auth, user => {
-  if(user){
-    // Send message
-    sendBtn.addEventListener("click", async ()=>{
-      const text = chatInput.value.trim();
-      if(!text) return;
-      await addDoc(collection(db, "globalMessages"), { from: username, text, timestamp: serverTimestamp() });
-      chatInput.value = "";
-    });
+        // Listener for all game data updates
+        GAME_REF.on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                board = data.board || Array(9).fill(null);
+                isGameActive = data.isActive !== false; // Default to true
+                currentPlayer = data.currentPlayer || 'X';
+                
+                // Set local player assignment if not already set
+                if (!localPlayer) {
+                    assignPlayer(data.players);
+                }
 
-    chatInput.addEventListener("keypress", async (e)=>{
-      if(e.key==="Enter"){ sendBtn.click(); }
-    });
+                updateUI();
+                checkWinner();
+            } else {
+                // If no game data exists, initialize a new game
+                initializeGame();
+            }
+        });
 
-    // Listen for messages
-    const q = query(collection(db,"globalMessages"), orderBy("timestamp"));
-    onSnapshot(q, snapshot=>{
-      messagesDiv.innerHTML = "";
-      snapshot.forEach(docSnap=>{
-        const data = docSnap.data();
-        const div = document.createElement("div");
-        div.classList.add("message");
-        const color = getColor(data.from);
-        div.innerHTML = `<strong style="color:${color}">${data.from}:</strong> ${data.text}`;
-        messagesDiv.appendChild(div);
-      });
-      messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    });
-  }
-});
-</script>
+        // --- 5. INITIALIZATION AND PLAYER ASSIGNMENT ---
 
+        // Assigns the local user as 'X' or 'O' based on available slots
+        function assignPlayer(playersData) {
+            const player1 = playersData ? playersData.player1 : null;
+            const player2 = playersData ? playersData.player2 : null;
+            const sessionId = getSessionId(); // Unique ID for this browser/device
+
+            if (player1 === sessionId) {
+                localPlayer = 'X';
+            } else if (player2 === sessionId) {
+                localPlayer = 'O';
+            } else if (!player1) {
+                // First player
+                localPlayer = 'X';
+                GAME_REF.child('players/player1').set(sessionId);
+            } else if (!player2) {
+                // Second player
+                localPlayer = 'O';
+                GAME_REF.child('players/player2').set(sessionId);
+            } else {
+                // Game is full (Spectator Mode)
+                localPlayer = null;
+            }
+
+            if (localPlayer) {
+                playerStatus.textContent = `You are Player: ${localPlayer}`;
+            } else {
+                playerStatus.textContent = 'Game is full. You are watching.';
+            }
+        }
+
+        // Gets a unique session ID for the user
+        function getSessionId() {
+            let id = localStorage.getItem('tictactoe_session_id');
+            if (!id) {
+                id = Math.random().toString(36).substring(2, 9) + Date.now();
+                localStorage.setItem('tictactoe_session_id', id);
+            }
+            return id;
+        }
+
+        // --- 6. GAME LOGIC ---
+
+        // Handles a click on a cell
+        function handleCellClick(e) {
+            const index = parseInt(e.target.dataset.index);
+
+            // Check if it's the player's turn, game is active, and cell is empty
+            if (isGameActive && localPlayer === currentPlayer && board[index] === null) {
+                
+                // Optimistically update the local board and UI
+                board[index] = localPlayer;
+                updateUI();
+
+                // Send the move to Firebase
+                GAME_REF.update({
+                    board: board,
+                    currentPlayer: currentPlayer === 'X' ? 'O' : 'X' // Switch player for next move
+                });
+            } else if (!isGameActive) {
+                alert('Game is over! Click "Start New Game" to reset.');
+            } else if (localPlayer !== currentPlayer) {
+                alert(`It's not your turn! Waiting for Player ${currentPlayer}...`);
+            } else if (!localPlayer) {
+                alert('You are a spectator. Cannot make a move.');
+            }
+        }
+
+        // Initializes a new game state in the database
+        function initializeGame() {
+            const newGameState = {
+                board: Array(9).fill(null),
+                isActive: true,
+                currentPlayer: 'X',
+                players: {} // Players will be assigned upon connecting
+            };
+            GAME_REF.set(newGameState);
+        }
+
+        // Checks for a winner and updates the game state
+        function checkWinner() {
+            const winningConditions = [
+                [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
+                [0, 3, 6], [1, 4, 7], [2, 5, 8], // Columns
+                [0, 4, 8], [2, 4, 6]             // Diagonals
+            ];
+
+            let winner = null;
+
+            for (let i = 0; i < winningConditions.length; i++) {
+                const [a, b, c] = winningConditions[i];
+                if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+                    winner = board[a];
+                    break;
+                }
+            }
+            
+            const isBoardFull = board.every(cell => cell !== null);
+
+            if (winner) {
+                statusMessage.textContent = `Player ${winner} wins! 🥳`;
+                // Only the winning player's client updates the database to end the game
+                if (localPlayer === winner && isGameActive) {
+                   GAME_REF.child('isActive').set(false);
+                }
+                resetButton.style.display = 'block';
+
+            } else if (isBoardFull) {
+                statusMessage.textContent = 'Game is a Draw! 🤝';
+                // Any client can update the database to end the game on a draw
+                if (isGameActive) {
+                    GAME_REF.child('isActive').set(false);
+                }
+                resetButton.style.display = 'block';
+            } else if (isGameActive) {
+                statusMessage.textContent = `It's Player ${currentPlayer}'s turn.`;
+                resetButton.style.display = 'none';
+            } else {
+                statusMessage.textContent = 'Game is waiting for reset.';
+                resetButton.style.display = 'block';
+            }
+        }
+
+        // --- 7. UI UPDATE ---
+
+        // Renders the board based on the current state
+        function updateUI() {
+            cells.forEach((cell, index) => {
+                const marker = board[index];
+                cell.textContent = marker;
+                cell.className = 'cell'; // Reset classes
+                if (marker) {
+                    cell.classList.add(marker);
+                }
+            });
+        }
+
+        // --- 8. EVENT LISTENERS ---
+
+        cells.forEach(cell => cell.addEventListener('click', handleCellClick));
+        
+        // Reset button only sets a new game state in Firebase
+        resetButton.addEventListener('click', () => {
+             // Only allow one player (e.g., player X) to reset to avoid conflicts
+            if (localPlayer === 'X' || !localPlayer) { // Allow spectators to reset too if X isn't around
+                initializeGame();
+            } else {
+                alert('Only Player X can start a new game.');
+            }
+        });
+        
+    </script>
 </body>
 </html>
