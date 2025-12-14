@@ -3,35 +3,134 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>3D Horror Game Prototype</title>
+    <title>3D Anime Drifting Multiplayer Prototype</title>
     <style>
+        /* Base styles for screen lock and aesthetics */
         body {
             margin: 0;
             overflow: hidden;
             background-color: #000;
-            font-family: Arial, sans-serif;
-            touch-action: manipulation; /* Screen lock */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: manipulation; /* Prevents mobile scrolling */
         }
-        canvas {
-            display: block;
-        }
-        /* Overlay for UI elements like a simple message */
-        #overlay {
+        canvas { display: block; }
+
+        /* UI Overlay */
+        #ui-overlay {
             position: absolute;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: red;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 10px 20px;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Allows clicks to pass through to the canvas */
+            z-index: 100;
+        }
+
+        /* D-Pad/Controller (Bottom Corners) */
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            pointer-events: auto;
+            display: flex;
+            gap: 10px;
+        }
+        #steering-controls { left: 20px; }
+        #throttle-controls { right: 20px; }
+
+        .control-btn {
+            width: 70px;
+            height: 70px;
+            background-color: rgba(255, 255, 255, 0.4);
+            color: #fff;
+            border: 2px solid #fff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+            user-select: none;
+            cursor: pointer;
+            transition: background-color 0.1s;
+        }
+        .control-btn:active, .control-btn.active {
+            background-color: rgba(255, 255, 255, 0.8);
+            color: #000;
+        }
+
+        /* Top Buttons */
+        #top-buttons {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            pointer-events: auto;
+            display: flex;
+            gap: 10px;
+        }
+        .ui-button {
+            padding: 10px 15px;
+            background-color: #f44336; /* Anime Red */
+            color: white;
+            border: none;
             border-radius: 5px;
-            font-size: 1.2em;
-            z-index: 10;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        /* Settings Dialog */
+        #settings-dialog {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            border: 2px solid #f44336;
+            z-index: 200;
+            display: none;
+        }
+        #settings-dialog label {
+            display: block;
+            margin-top: 10px;
         }
     </style>
 </head>
 <body>
-    <div id="overlay">Welcome to the dark room...</div>
+    <div id="ui-overlay">
+        
+        <div id="top-buttons">
+            <button class="ui-button" onclick="showSettings()">⚙️ Settings/Profile</button>
+        </div>
+
+        <div id="controls" id="steering-controls">
+            <div class="control-btn" data-action="steer-left">◀️</div>
+            <div class="control-btn" data-action="steer-right">▶️</div>
+        </div>
+
+        <div id="controls" id="throttle-controls">
+            <div class="control-btn" data-action="accelerate">⬆️ ACCEL</div>
+            <div class="control-btn" data-action="brake">⬇️ BRAKE</div>
+        </div>
+    </div>
+    
+    <div id="settings-dialog">
+        <h3>Settings & Profile</h3>
+        <label for="username-input">Username:</label>
+        <input type="text" id="username-input">
+        <button onclick="saveUsername()">Set Username</button>
+        
+        <hr>
+        
+        <label>
+            <input type="checkbox" id="music-toggle" onchange="toggleSound('music')"> Music ON/OFF
+        </label>
+        <label>
+            <input type="checkbox" id="engine-toggle" onchange="toggleSound('engine')" checked> Car Sounds ON/OFF
+        </label>
+        
+        <button onclick="hideSettings()" style="margin-top: 20px;">Close</button>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/three@0.137.0/build/three.min.js"></script>
 
@@ -53,84 +152,215 @@
         const app = firebase.initializeApp(firebaseConfig);
         const database = app.database();
         
-        // Simple reference for future horror game tracking (e.g., survival data)
-        const GAME_REF = database.ref('horror_game_data');
-
+        // Firebase references for player position and username data
+        const USERS_REF = database.ref('drift_users');
+        const PLAYERS_REF = database.ref('drift_game/players');
+        
+        // Local Player State
+        let localPlayer = {
+            id: null,
+            username: 'Racer',
+            x: 0,
+            y: 0, // Vertical position (flat track, so Y is usually 0)
+            z: 0,
+            rotation: 0, // Car rotation around Y-axis
+            speed: 0
+        };
+        
         // --- 2. THREE.JS 3D SETUP ---
         let scene, camera, renderer;
-        
+        let car, pivot;
+
+        // Game parameters
+        const MAX_SPEED = 0.5;
+        const ACCELERATION = 0.01;
+        const DECELERATION = 0.005;
+        const STEER_RATE = 0.05;
+        const CAR_WIDTH = 1.5;
+        const CAR_LENGTH = 3;
+
         function init3D() {
             // Setup Scene
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x000000); // Black background for horror
+            scene.background = new THREE.Color(0x80a0c0); // Light blue/grey sky
+            scene.fog = new THREE.Fog(0x80a0c0, 10, 80);
 
-            // Setup Camera (Perspective)
+            // Setup Camera
             camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(0, 1.6, 5); // Default player height (1.6m) and position
+            camera.position.set(0, 10, 15); // Bird's eye view for top-down/isometric feel
+            camera.lookAt(new THREE.Vector3(0, 0, 0));
 
             // Setup Renderer
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             document.body.appendChild(renderer.domElement);
             
-            // --- CREATE THE HORROR ROOM ---
-
-            // Floor
-            const floorGeometry = new THREE.PlaneGeometry(10, 10);
-            // Use a dark, muddy color for the floor
-            const floorMaterial = new THREE.MeshStandardMaterial({ color: 0x333333, roughness: 0.8, metalness: 0.1 }); 
-            const floor = new THREE.Mesh(floorGeometry, floorMaterial);
-            floor.rotation.x = -Math.PI / 2; // Rotate to lie flat
-            floor.receiveShadow = true;
-            scene.add(floor);
-
-            // Walls (Basic cubes for simplicity)
-            const wallMaterial = new THREE.MeshStandardMaterial({ color: 0x444444, roughness: 0.9 });
-            const wallDepth = 0.1;
-
-            // Back Wall
-            const backWall = new THREE.Mesh(new THREE.BoxGeometry(10, 5, wallDepth), wallMaterial);
-            backWall.position.set(0, 2.5, -5);
-            scene.add(backWall);
-
-            // Left Wall
-            const leftWall = new THREE.Mesh(new THREE.BoxGeometry(wallDepth, 5, 10), wallMaterial);
-            leftWall.position.set(-5, 2.5, 0);
-            scene.add(leftWall);
-            
-            // Right Wall
-            const rightWall = new THREE.Mesh(new THREE.BoxGeometry(wallDepth, 5, 10), wallMaterial);
-            rightWall.position.set(5, 2.5, 0);
-            scene.add(rightWall);
-
-            // --- LIGHTING (Horror atmosphere requires low light) ---
-
-            // Ambient Light (Very low background light)
-            const ambientLight = new THREE.AmbientLight(0x404040, 0.1); 
+            // --- LIGHTING ---
+            const ambientLight = new THREE.AmbientLight(0x606060);
             scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(5, 10, 7);
+            scene.add(directionalLight);
 
-            // Point Light (Simulating a single, weak bulb or flashlight)
-            const pointLight = new THREE.PointLight(0xffaa00, 1.5, 10); // Weak yellow/orange light
-            pointLight.position.set(0, 3, 0);
-            scene.add(pointLight);
+            // --- TRACK (Japan Drift aesthetic: dark asphalt and subtle mountains) ---
+            const trackGeometry = new THREE.PlaneGeometry(100, 100);
+            const trackMaterial = new THREE.MeshLambertMaterial({ color: 0x222222 }); // Dark Asphalt
+            const track = new THREE.Mesh(trackGeometry, trackMaterial);
+            track.rotation.x = -Math.PI / 2;
+            scene.add(track);
 
-            // --- FOG (For atmospheric horror effect) ---
-            scene.fog = new THREE.Fog(0x000000, 1, 15); // Black fog that starts close
+            // --- LOCAL CAR MODEL (Simple block with anime colors) ---
+            const carGeometry = new THREE.BoxGeometry(CAR_WIDTH, 1, CAR_LENGTH);
+            const carMaterial = new THREE.MeshPhongMaterial({ color: 0xff0040 }); // Vibrant Anime Red/Pink
+            car = new THREE.Mesh(carGeometry, carMaterial);
+            car.position.set(localPlayer.x, 0.5, localPlayer.z); // Center of the car
 
-            // --- EXAMPLE OBJECT (Something creepy) ---
-            const boxGeometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
-            const boxMaterial = new THREE.MeshStandardMaterial({ color: 0x880000 }); // Dark Red/Blood color
-            const creepyBox = new THREE.Mesh(boxGeometry, boxMaterial);
-            creepyBox.position.set(2, 0.25, -3); // Place it on the floor
-            scene.add(creepyBox);
+            // Create a pivot group to simplify movement/rotation
+            pivot = new THREE.Group();
+            pivot.add(car);
+            scene.add(pivot);
         }
 
-        // --- 3. GAME LOOP ---
+        // --- 3. FIREBASE & MULTIPLAYER ---
+
+        function setupPlayer() {
+            localPlayer.id = localStorage.getItem('drift_user_id') || USERS_REF.push().key;
+            localStorage.setItem('drift_user_id', localPlayer.id);
+
+            // 1. Load/Set Username
+            USERS_REF.child(localPlayer.id).once('value', (snapshot) => {
+                const userData = snapshot.val();
+                if (userData && userData.username) {
+                    localPlayer.username = userData.username;
+                }
+                document.getElementById('username-input').value = localPlayer.username;
+            });
+            
+            // 2. Set initial position and presence
+            PLAYERS_REF.child(localPlayer.id).set({
+                username: localPlayer.username,
+                x: localPlayer.x,
+                z: localPlayer.z,
+                rotation: localPlayer.rotation,
+                color: car.material.color.getHex() // Send car color
+            });
+
+            // 3. Remove player on disconnect
+            PLAYERS_REF.child(localPlayer.id).onDisconnect().remove();
+            
+            // 4. Start listening for other players
+            listenForOtherPlayers();
+        }
+
+        // Dictionary to hold other player sprites
+        const otherPlayers = {};
+
+        function listenForOtherPlayers() {
+            PLAYERS_REF.on('value', (snapshot) => {
+                const playersData = snapshot.val();
+
+                // Remove sprites for players who left
+                Object.keys(otherPlayers).forEach(id => {
+                    if (!playersData || !playersData[id]) {
+                        scene.remove(otherPlayers[id].pivot);
+                        delete otherPlayers[id];
+                    }
+                });
+
+                // Update existing sprites or create new ones
+                if (playersData) {
+                    Object.keys(playersData).forEach(id => {
+                        const player = playersData[id];
+
+                        if (id === localPlayer.id) return; // Skip local player
+                        
+                        if (!otherPlayers[id]) {
+                            // Create new remote player sprite
+                            const remoteCarGeometry = new THREE.BoxGeometry(CAR_WIDTH, 1, CAR_LENGTH);
+                            const remoteCarMaterial = new THREE.MeshPhongMaterial({ color: player.color || 0xffffff });
+                            const remoteCar = new THREE.Mesh(remoteCarGeometry, remoteCarMaterial);
+                            
+                            const remotePivot = new THREE.Group();
+                            remotePivot.add(remoteCar);
+                            scene.add(remotePivot);
+
+                            // Add a label (simple cylinder/text placeholder)
+                            const labelGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.5, 8);
+                            const labelMat = new THREE.MeshBasicMaterial({ color: 0xcccccc });
+                            const label = new THREE.Mesh(labelGeo, labelMat);
+                            label.position.y = 1.5;
+                            remotePivot.add(label);
+
+                            otherPlayers[id] = { pivot: remotePivot, username: player.username };
+                        }
+
+                        // Update remote player position/rotation
+                        const remotePivot = otherPlayers[id].pivot;
+                        remotePivot.position.set(player.x, 0, player.z);
+                        remotePivot.rotation.y = player.rotation;
+                    });
+                }
+            });
+        }
+
+        // --- 4. GAME PHYSICS & MOVEMENT ---
+        const controls = {
+            'accelerate': false,
+            'brake': false,
+            'steer-left': false,
+            'steer-right': false
+        };
+
+        function updatePhysics() {
+            // 1. Acceleration/Braking
+            if (controls.accelerate) {
+                localPlayer.speed = Math.min(MAX_SPEED, localPlayer.speed + ACCELERATION);
+            } else if (controls.brake) {
+                localPlayer.speed = Math.max(-MAX_SPEED / 2, localPlayer.speed - ACCELERATION); // Reverse speed
+            } else {
+                // Natural deceleration
+                localPlayer.speed *= (1 - DECELERATION);
+            }
+            
+            // 2. Steering
+            if (localPlayer.speed !== 0) {
+                if (controls['steer-left']) {
+                    localPlayer.rotation += STEER_RATE * (localPlayer.speed > 0 ? 1 : -1);
+                }
+                if (controls['steer-right']) {
+                    localPlayer.rotation -= STEER_RATE * (localPlayer.speed > 0 ? 1 : -1);
+                }
+            }
+
+            // 3. Update Position
+            const angle = localPlayer.rotation;
+            localPlayer.x += Math.sin(angle) * localPlayer.speed;
+            localPlayer.z += Math.cos(angle) * localPlayer.speed;
+
+            // 4. Update 3D Model
+            pivot.position.set(localPlayer.x, 0, localPlayer.z);
+            pivot.rotation.y = localPlayer.rotation;
+            
+            // 5. Update Firebase (Throttle the update rate slightly)
+            if (Date.now() % 50 === 0) { // Update every 50ms (20 times per second)
+                PLAYERS_REF.child(localPlayer.id).update({
+                    x: localPlayer.x,
+                    z: localPlayer.z,
+                    rotation: localPlayer.rotation
+                });
+            }
+        }
+
+        // --- 5. GAME LOOP ---
         function animate() {
             requestAnimationFrame(animate);
+            updatePhysics();
             
-            // This is where all future game logic will go (e.g., enemy movement, door opening)
-            
+            // Camera follow (simple chase cam)
+            camera.position.x = localPlayer.x + Math.sin(localPlayer.rotation) * 10;
+            camera.position.z = localPlayer.z + Math.cos(localPlayer.rotation) * 10;
+            camera.lookAt(pivot.position);
+
             renderer.render(scene, camera);
         }
 
@@ -142,28 +372,84 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         }
 
-        // --- 4. FIREBASE LOGIC (Placeholder) ---
-        function sendHeartbeat() {
-             // Example function: update a last-seen timestamp to track survival time
-             const userId = localStorage.getItem('horror_user_id') || `user_${Math.random().toString(36).substring(2, 5)}`;
-             localStorage.setItem('horror_user_id', userId);
+        // --- 6. UI & SETTINGS LOGIC ---
 
-             GAME_REF.child('active_players').child(userId).set({
-                 lastSeen: firebase.database.ServerValue.TIMESTAMP
-             });
-             
-             // Remove when user disconnects
-             GAME_REF.child('active_players').child(userId).onDisconnect().remove();
+        function showSettings() {
+            document.getElementById('settings-dialog').style.display = 'block';
         }
 
-        // --- 5. INITIALIZATION ---
-        init3D();
-        animate();
-        sendHeartbeat(); // Start tracking player presence
-        
-        // Optional: Send heartbeat every 10 seconds to keep track of active user
-        setInterval(sendHeartbeat, 10000); 
+        function hideSettings() {
+            document.getElementById('settings-dialog').style.display = 'none';
+        }
 
+        function saveUsername() {
+            const newUsername = document.getElementById('username-input').value;
+            if (newUsername.trim() === '') {
+                alert("Username cannot be empty.");
+                return;
+            }
+            
+            // 1. Check for uniqueness (simple client-side approach)
+            USERS_REF.orderByChild('username').equalTo(newUsername).once('value', (snapshot) => {
+                let isTaken = false;
+                snapshot.forEach(child => {
+                    if (child.key !== localPlayer.id) { // Allow updating own profile
+                        isTaken = true;
+                    }
+                });
+
+                if (isTaken) {
+                    alert("Username is already taken. Please choose another.");
+                } else {
+                    localPlayer.username = newUsername;
+                    // 2. Update Firebase profile
+                    USERS_REF.child(localPlayer.id).update({ username: newUsername });
+                    // 3. Update active player list
+                    PLAYERS_REF.child(localPlayer.id).update({ username: newUsername });
+                    alert(`Username set to: ${newUsername}`);
+                    hideSettings();
+                }
+            });
+        }
+
+        function toggleSound(type) {
+            const isChecked = document.getElementById(`${type}-toggle`).checked;
+            alert(`${type.charAt(0).toUpperCase() + type.slice(1)} Sound is now ${isChecked ? 'ON' : 'OFF'} (Placeholder)`);
+            // Future implementation: Logic to start/stop audio elements here
+        }
+
+        // Controller input handlers (Touch/Mouse)
+        document.querySelectorAll('.control-btn').forEach(btn => {
+            const action = btn.dataset.action;
+            
+            const startControl = () => {
+                controls[action] = true;
+                btn.classList.add('active');
+            };
+
+            const stopControl = () => {
+                controls[action] = false;
+                btn.classList.remove('active');
+            };
+
+            // Touch support (for mobile)
+            btn.addEventListener('touchstart', (e) => {
+                e.preventDefault(); 
+                startControl();
+            });
+            btn.addEventListener('touchend', stopControl);
+            btn.addEventListener('touchcancel', stopControl);
+            
+            // Mouse support (for desktop testing)
+            btn.addEventListener('mousedown', startControl);
+            btn.addEventListener('mouseup', stopControl);
+            btn.addEventListener('mouseleave', stopControl); 
+        });
+
+        // --- 7. INITIALIZATION ---
+        init3D();
+        setupPlayer();
+        animate();
     </script>
 </body>
 </html>
