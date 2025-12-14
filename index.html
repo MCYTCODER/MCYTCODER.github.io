@@ -3,92 +3,165 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mini Minecraft 2D</title>
+<title>VyXo 3D Minecraft Mobile</title>
 <style>
-  body {
-    margin:0;
-    background:#87CEEB; /* sky blue */
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    height:100vh;
-    font-family: Arial,sans-serif;
+  body { margin:0; overflow:hidden; touch-action:none; }
+  canvas { display:block; }
+
+  /* Screen lock button */
+  #lockBtn {
+    position:absolute;
+    top:10px;
+    left:10px;
+    padding:10px 15px;
+    background:#FF6D1F;
+    color:#fff;
+    font-weight:bold;
+    border:none;
+    border-radius:8px;
+    z-index:100;
+    cursor:pointer;
   }
-  canvas {
-    border:2px solid #000;
-    background:#87CEEB;
+
+  /* Joystick container */
+  #joystick {
+    position:absolute;
+    bottom:20px;
+    left:20px;
+    width:80px;
+    height:80px;
+    background:rgba(0,0,0,0.2);
+    border-radius:50%;
+    touch-action:none;
+  }
+  #thumb {
+    width:40px;
+    height:40px;
+    background:rgba(255,255,255,0.5);
+    border-radius:50%;
+    position:absolute;
+    left:20px;
+    top:20px;
+    touch-action:none;
   }
 </style>
 </head>
 <body>
-<canvas id="gameCanvas" width="640" height="480"></canvas>
+<button id="lockBtn">Lock Screen</button>
+<div id="joystick"><div id="thumb"></div></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r152/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.0/examples/js/controls/PointerLockControls.js"></script>
 
 <script>
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
+// Scene setup
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87CEEB);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+camera.position.set(0,2,5);
 
-const TILE_SIZE = 32;
-const ROWS = canvas.height / TILE_SIZE;
-const COLS = canvas.width / TILE_SIZE;
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
 
-// Basic blocks: 0 = empty, 1 = dirt
-let world = [];
-for(let r=0;r<ROWS;r++){
-  world[r] = [];
-  for(let c=0;c<COLS;c++){
-    if(r > ROWS-3) world[r][c] = 1; // bottom 3 rows dirt
-    else world[r][c] = 0; // empty sky
+// Lighting
+const light = new THREE.DirectionalLight(0xffffff,1);
+light.position.set(10,10,10);
+scene.add(light);
+scene.add(new THREE.AmbientLight(0xffffff,0.5));
+
+// PointerLock controls
+const controls = new THREE.PointerLockControls(camera, document.body);
+document.body.addEventListener('click',()=>controls.lock());
+
+// Screen lock button
+const lockBtn = document.getElementById('lockBtn');
+lockBtn.addEventListener('click',()=>{
+  document.body.style.overflow='hidden';
+  alert('Screen locked: scrolling and sliding disabled');
+});
+
+// Ground blocks
+const blockGeom = new THREE.BoxGeometry(1,1,1);
+const blockMat = new THREE.MeshStandardMaterial({color:0x8B4513});
+for(let x=-10;x<=10;x++){
+  for(let z=-10;z<=10;z++){
+    const block = new THREE.Mesh(blockGeom,blockMat);
+    block.position.set(x,0,z);
+    scene.add(block);
   }
 }
 
-// Player
-let player = {x:5, y:ROWS-4, color:"#FF0000"};
-
-function drawWorld(){
-  for(let r=0;r<ROWS;r++){
-    for(let c=0;c<COLS;c++){
-      if(world[r][c] === 1){
-        ctx.fillStyle = "#8B4513"; // dirt
-        ctx.fillRect(c*TILE_SIZE, r*TILE_SIZE, TILE_SIZE, TILE_SIZE);
-        ctx.strokeStyle = "#000";
-        ctx.strokeRect(c*TILE_SIZE, r*TILE_SIZE, TILE_SIZE, TILE_SIZE);
-      } else {
-        ctx.fillStyle = "#87CEEB"; // sky
-        ctx.fillRect(c*TILE_SIZE, r*TILE_SIZE, TILE_SIZE, TILE_SIZE);
-      }
-    }
-  }
-  // draw player
-  ctx.fillStyle = player.color;
-  ctx.fillRect(player.x*TILE_SIZE, player.y*TILE_SIZE, TILE_SIZE, TILE_SIZE);
-}
-
-drawWorld();
+// Player movement variables
+let velocity = new THREE.Vector3();
+let moveForward=false, moveBackward=false, moveLeft=false, moveRight=false;
+const speed=5;
 
 // Keyboard controls
-document.addEventListener("keydown", (e)=>{
-  if(e.key === "ArrowLeft" && player.x>0) player.x--;
-  if(e.key === "ArrowRight" && player.x<COLS-1) player.x++;
-  if(e.key === "ArrowUp" && player.y>0) player.y--;
-  if(e.key === "ArrowDown" && player.y<ROWS-1) player.y++;
-  drawWorld();
+document.addEventListener('keydown', e=>{
+  if(e.code==='KeyW') moveForward=true;
+  if(e.code==='KeyS') moveBackward=true;
+  if(e.code==='KeyA') moveLeft=true;
+  if(e.code==='KeyD') moveRight=true;
+});
+document.addEventListener('keyup', e=>{
+  if(e.code==='KeyW') moveForward=false;
+  if(e.code==='KeyS') moveBackward=false;
+  if(e.code==='KeyA') moveLeft=false;
+  if(e.code==='KeyD') moveRight=false;
 });
 
-// Place/Broke blocks
-document.addEventListener("keydown",(e)=>{
-  if(e.key==="z"){ // break block under player
-    if(world[player.y+1] && world[player.y+1][player.x]===1){
-      world[player.y+1][player.x]=0;
-      drawWorld();
-    }
-  }
-  if(e.key==="x"){ // place block under player
-    if(world[player.y+1] && world[player.y+1][player.x]===0){
-      world[player.y+1][player.x]=1;
-      drawWorld();
-    }
-  }
+// Touch joystick
+const joystick = document.getElementById('joystick');
+const thumb = document.getElementById('thumb');
+let touchStart = null;
+let touchVector = {x:0,y:0};
+
+joystick.addEventListener('touchstart', e=>{
+  touchStart = {x:e.touches[0].clientX, y:e.touches[0].clientY};
 });
+joystick.addEventListener('touchmove', e=>{
+  const touch = e.touches[0];
+  const dx = touch.clientX - touchStart.x;
+  const dy = touch.clientY - touchStart.y;
+  const maxDist = 30;
+  const dist = Math.min(Math.sqrt(dx*dx+dy*dy), maxDist);
+  const angle = Math.atan2(dy,dx);
+  thumb.style.transform = `translate(${Math.cos(angle)*dist}px, ${Math.sin(angle)*dist}px)`;
+  touchVector.x = dx/maxDist;
+  touchVector.y = dy/maxDist;
+});
+joystick.addEventListener('touchend', e=>{
+  touchVector.x=0;
+  touchVector.y=0;
+  thumb.style.transform='translate(0,0)';
+});
+
+// Animate
+const clock = new THREE.Clock();
+function animate(){
+  requestAnimationFrame(animate);
+  const delta = clock.getDelta();
+
+  // Keyboard movement
+  let dirX=0, dirZ=0;
+  if(moveForward) dirZ -= speed*delta;
+  if(moveBackward) dirZ += speed*delta;
+  if(moveLeft) dirX -= speed*delta;
+  if(moveRight) dirX += speed*delta;
+
+  // Touch joystick
+  dirX += touchVector.x*speed*delta;
+  dirZ -= touchVector.y*speed*delta;
+
+  controls.moveRight(dirX);
+  controls.moveForward(dirZ);
+
+  renderer.render(scene,camera);
+}
+animate();
+
+// Prevent scrolling
+window.addEventListener('touchmove', e=>{ e.preventDefault(); }, {passive:false});
 </script>
 </body>
 </html>
