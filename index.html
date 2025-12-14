@@ -59,20 +59,37 @@
             color: #2196F3; /* Blue for O */
         }
 
-        #reset-button {
+        .game-controls {
             margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .game-controls button {
             padding: 10px 20px;
             font-size: 1em;
             cursor: pointer;
-            background-color: #ff9800;
-            color: white;
             border: none;
             border-radius: 5px;
             transition: background-color 0.3s;
+            color: white;
+        }
+
+        #reset-button {
+            background-color: #ff9800;
         }
 
         #reset-button:hover {
             background-color: #e68a00;
+        }
+        
+        #forfeit-button {
+            background-color: #f44336; /* Red for forfeit */
+        }
+
+        #forfeit-button:hover {
+            background-color: #d32f2f;
         }
     </style>
 </head>
@@ -95,7 +112,10 @@
         <div class="cell" data-index="8"></div>
     </div>
 
-    <button id="reset-button" style="display: none;">Start New Game</button>
+    <div class="game-controls">
+        <button id="reset-button" style="display: none;">Start New Game</button>
+        <button id="forfeit-button">Opponent Left / Pass Turn</button>
+    </div>
 
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
@@ -131,6 +151,7 @@
         const statusMessage = document.getElementById('status-message');
         const playerStatus = document.getElementById('player-status');
         const resetButton = document.getElementById('reset-button');
+        const forfeitButton = document.getElementById('forfeit-button'); // NEW
 
         // --- 4. FIREBASE LISTENERS (Multiplayer Logic) ---
 
@@ -297,13 +318,36 @@
 
         cells.forEach(cell => cell.addEventListener('click', handleCellClick));
         
-        // Reset button only sets a new game state in Firebase
+        // Reset button only sets a new game state in Firebase (Only Player X or Spectator can do this)
         resetButton.addEventListener('click', () => {
-             // Only allow one player (e.g., player X) to reset to avoid conflicts
-            if (localPlayer === 'X' || !localPlayer) { // Allow spectators to reset too if X isn't around
+             if (localPlayer === 'X' || !localPlayer) { 
                 initializeGame();
             } else {
                 alert('Only Player X can start a new game.');
+            }
+        });
+
+        // NEW: Forfeit/Pass Turn button logic
+        forfeitButton.addEventListener('click', () => {
+            if (isGameActive && localPlayer) {
+                const confirmSkip = confirm(`Are you sure you want to pass the turn? Use this if your opponent has left or disconnected.`);
+
+                if (confirmSkip) {
+                    // Update Firebase to switch the current player
+                    const nextPlayer = currentPlayer === 'X' ? 'O' : 'X';
+                    GAME_REF.child('currentPlayer').set(nextPlayer)
+                        .then(() => {
+                            alert(`Turn successfully passed. It is now Player ${nextPlayer}'s turn.`);
+                        })
+                        .catch((error) => {
+                            console.error("Error skipping turn:", error);
+                            alert("Could not skip the turn. Check console for details.");
+                        });
+                }
+            } else if (!isGameActive) {
+                alert('The game is over. Click "Start New Game" to reset.');
+            } else if (!localPlayer) {
+                alert('You are a spectator and cannot change the game state.');
             }
         });
         
