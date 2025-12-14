@@ -10,7 +10,7 @@
   h1 { margin:0; font-size:1.5em; }
   #chatContainer { flex:1; display:flex; flex-direction:column; padding:10px; }
   #messages { flex:1; overflow-y:auto; padding:10px; border:1px solid #444; border-radius:8px; margin-bottom:10px; }
-  .message { margin:5px 0; }
+  .message { margin:5px 0; word-wrap:break-word; }
   #chatInputContainer { display:flex; gap:5px; }
   #chatInput { flex:1; padding:8px; border-radius:4px; border:1px solid #444; background:#202020; color:#F1F1F1; }
   button { padding:8px 12px; border:none; border-radius:4px; cursor:pointer; background:#00C4FF; color:white; }
@@ -34,23 +34,24 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
 import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
 
-// Firebase config
+// --- Firebase Config ---
 const firebaseConfig = {
-  apiKey: "AIzaSyDpP_gRTAEwXdbGlNpHenJvEvNVyARwHzg",
-  authDomain: "vxyo-chat.firebaseapp.com",
-  projectId: "vxyo-chat",
-  storageBucket: "vxyo-chat.firebasestorage.app",
-  messagingSenderId: "497737291156",
-  appId: "1:497737291156:web:9dfeed0e4b227750ebeb81"
+  apiKey: "AIzaSyAK9yp29MbVfj5B9BsMdBagXuDE3soEvic",
+  authDomain: "vyxo-chat.firebaseapp.com",
+  projectId: "vyxo-chat",
+  storageBucket: "vyxo-chat.firebasestorage.app",
+  messagingSenderId: "624232754008",
+  appId: "1:624232754008:web:e8949ba42713bd526b932d"
 };
 
-// Initialize Firebase
+// --- Initialize Firebase ---
 const app = initializeApp(firebaseConfig);
 const db = getFirestore();
+const auth = getAuth();
 
-// Generate random username
-const usernameColors = ["#FF6D1F","#00C4FF","#FF00FF","#00FF00","#FFFF00","#FF8800","#00FFFF"];
+// --- Generate unique username ---
 let username = localStorage.getItem("vyxoGlobalUsername");
 if(!username){
   username = "VyXoUser_" + Math.floor(Math.random()*100000);
@@ -58,38 +59,51 @@ if(!username){
 }
 document.getElementById("usernameDisplay").textContent = username;
 
-// DOM elements
-const messagesDiv = document.getElementById("messages");
-const chatInput = document.getElementById("chatInput");
-const sendBtn = document.getElementById("sendBtn");
-
-// Function to get random color for username
+// --- Username color generator ---
+const usernameColors = ["#FF6D1F","#00C4FF","#FF00FF","#00FF00","#FFFF00","#FF8800","#00FFFF"];
 function getColor(name){
   let hash=0; for(let i=0;i<name.length;i++){hash=name.charCodeAt(i)+((hash<<5)-hash);}
   return usernameColors[Math.abs(hash)%usernameColors.length];
 }
 
-// Send message
-sendBtn.addEventListener("click", async ()=>{
-  const text = chatInput.value.trim();
-  if(!text) return;
-  await addDoc(collection(db, "globalMessages"), { from: username, text, timestamp: serverTimestamp() });
-  chatInput.value = "";
-});
+// --- DOM elements ---
+const messagesDiv = document.getElementById("messages");
+const chatInput = document.getElementById("chatInput");
+const sendBtn = document.getElementById("sendBtn");
 
-// Listen for messages
-const q = query(collection(db,"globalMessages"), orderBy("timestamp"));
-onSnapshot(q, snapshot=>{
-  messagesDiv.innerHTML = "";
-  snapshot.forEach(docSnap=>{
-    const data = docSnap.data();
-    const div = document.createElement("div");
-    div.classList.add("message");
-    const color = getColor(data.from);
-    div.innerHTML = `<strong style="color:${color}">${data.from}:</strong> ${data.text}`;
-    messagesDiv.appendChild(div);
-  });
-  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+// --- Sign in anonymously ---
+signInAnonymously(auth).catch(console.error);
+
+// --- Chat functionality after login ---
+onAuthStateChanged(auth, user => {
+  if(user){
+    // Send message
+    sendBtn.addEventListener("click", async ()=>{
+      const text = chatInput.value.trim();
+      if(!text) return;
+      await addDoc(collection(db, "globalMessages"), { from: username, text, timestamp: serverTimestamp() });
+      chatInput.value = "";
+    });
+
+    chatInput.addEventListener("keypress", async (e)=>{
+      if(e.key==="Enter"){ sendBtn.click(); }
+    });
+
+    // Listen for messages
+    const q = query(collection(db,"globalMessages"), orderBy("timestamp"));
+    onSnapshot(q, snapshot=>{
+      messagesDiv.innerHTML = "";
+      snapshot.forEach(docSnap=>{
+        const data = docSnap.data();
+        const div = document.createElement("div");
+        div.classList.add("message");
+        const color = getColor(data.from);
+        div.innerHTML = `<strong style="color:${color}">${data.from}:</strong> ${data.text}`;
+        messagesDiv.appendChild(div);
+      });
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    });
+  }
 });
 </script>
 
