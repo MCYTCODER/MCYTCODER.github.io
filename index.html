@@ -1,18 +1,97 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>My Video Site</title>
+  <meta charset="UTF-8">
+  <title>Vyxo</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: #111111; /* Clubroom Contrast Black */
+      color: #F5F5F5; /* Soft White */
+    }
+    header {
+      background: linear-gradient(90deg, #FF6D1F, #00C4FF); /* Gradient accent */
+      color: #F5F5F5;
+      padding: 15px 25px;
+      font-size: 28px;
+      font-weight: bold;
+      border-radius: 0 0 15px 15px;
+    }
+    nav {
+      padding: 10px 25px;
+      display: flex;
+      justify-content: center;
+      backdrop-filter: blur(10px);
+      background: rgba(255, 255, 255, 0.05); /* Glassy effect */
+      border-bottom: 1px solid #333;
+      margin-bottom: 20px;
+    }
+    nav input {
+      width: 300px;
+      padding: 10px 15px;
+      border-radius: 25px;
+      border: 1px solid rgba(255,255,255,0.2);
+      outline: none;
+      background: rgba(255,255,255,0.05); /* Glassy */
+      color: #F5F5F5;
+      backdrop-filter: blur(8px);
+      transition: 0.2s;
+    }
+    nav input::placeholder {
+      color: rgba(245,245,245,0.7);
+    }
+    nav input:focus {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid #FF6D1F; /* Highlight on focus */
+    }
+    .video-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      padding: 25px;
+      justify-content: center;
+    }
+    .video-card {
+      width: 220px;
+      background: rgba(255,255,255,0.05); /* Glassy card */
+      padding: 10px;
+      border-radius: 12px;
+      text-align: center;
+      transition: transform 0.2s, background 0.2s;
+      backdrop-filter: blur(10px);
+    }
+    .video-card:hover {
+      transform: scale(1.05);
+      background: rgba(255,255,255,0.1);
+    }
+    .video-card img {
+      width: 100%;
+      border-radius: 6px;
+    }
+    .video-card p {
+      margin: 8px 0 0 0;
+      font-weight: bold;
+      color: #F5F5F5;
+    }
+    a { text-decoration: none; color: inherit; }
+  </style>
 </head>
 <body>
-  <h1>Welcome to My Video Site</h1>
-  <p>This is my YouTube-style website.</p>
 
-  <h2>Videos</h2>
-  <div>
+<header>Vyxo</header>
+<nav>
+  <input type="text" placeholder="Search Vyxo">
+</nav>
+
+<div class="video-grid">
+  <div class="video-card">
     <a href="watch.html">
-      <img src="https://via.placeholder.com/150" alt="My First Video">
+      <img src="https://via.placeholder.com/220x125" alt="My First Video">
       <p>My First Video</p>
     </a>
   </div>
+</div>
+
 </body>
 </html>
