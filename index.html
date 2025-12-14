@@ -2,119 +2,194 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multiplayer Tic-Tac-Toe</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>2D Minecraft Multiplayer Prototype</title>
     <style>
-        /* CSS for the Tic-Tac-Toe Game */
+        /* BASE STYLES & SCREEN LOCK */
         body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
             margin: 0;
-            background-color: #f4f4f9;
+            overflow: hidden; /* Prevent page scroll */
+            background-color: #5d9e5d; /* Sky/Grass color */
+            font-family: Arial, sans-serif;
+            touch-action: manipulation; /* Screen lock for touch devices */
+        }
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
         }
 
-        #game-info {
-            font-size: 1.2em;
-            margin-bottom: 20px;
-            text-align: center;
-        }
-
-        #game-board {
+        /* GAME WORLD */
+        #world {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             display: grid;
-            grid-template-columns: repeat(3, 100px);
-            grid-template-rows: repeat(3, 100px);
-            gap: 5px;
-            background-color: #333;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            grid-template-columns: repeat(16, 1fr); /* 16 columns */
+            grid-template-rows: repeat(12, 1fr); /* 12 rows */
+            box-sizing: border-box;
         }
 
-        .cell {
-            width: 100px;
-            height: 100px;
-            background-color: #fff;
+        .block {
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            box-sizing: border-box;
+            font-size: 0.8em;
+            font-weight: bold;
+            color: white;
+            text-shadow: 1px 1px 1px black;
+        }
+
+        /* Block Textures (Example) */
+        .grass { background-color: #71b86d; }
+        .dirt { background-color: #8b5a2b; }
+        .stone { background-color: #7d7d7d; }
+        .sky { background-color: #5d9e5d; border: none; } /* Match background for empty space */
+
+        /* PLAYER SPRITES */
+        .player-sprite {
+            position: absolute;
+            width: 50px; /* Example size */
+            height: 50px;
+            background-color: #f000f0; /* Pink for visibility */
+            border: 2px solid #555;
+            border-radius: 5px;
+            transition: top 0.1s linear, left 0.1s linear; /* Smooth movement */
+            pointer-events: none; /* Don't block clicks */
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+        }
+        .player-label {
+            position: absolute;
+            top: -15px;
+            font-size: 0.7em;
+            color: #fff;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 2px 4px;
+            border-radius: 3px;
+            white-space: nowrap;
+        }
+
+        /* UI ELEMENTS */
+        #ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Allows clicks to pass through to the world unless hitting a button */
+        }
+
+        /* Inventory Bar (Bottom Center Hotbar) */
+        #inventory-bar {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 5px;
+            pointer-events: auto;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 5px;
+            border-radius: 8px;
+        }
+
+        .slot {
+            width: 50px;
+            height: 50px;
+            border: 3px solid #666;
+            background: rgba(255, 255, 255, 0.2);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 3em;
-            font-weight: bold;
+            color: white;
+            font-size: 0.7em;
+            border-radius: 5px;
+        }
+
+        /* D-Pad/Joystick (Bottom Left) */
+        #d-pad {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            pointer-events: auto;
+            display: grid;
+            grid-template-columns: repeat(3, 50px);
+            grid-template-rows: repeat(3, 50px);
+            gap: 5px;
+        }
+        .d-pad-btn {
+            background-color: rgba(100, 100, 100, 0.7);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+            border-radius: 8px;
+            user-select: none;
             cursor: pointer;
-            transition: background-color 0.2s;
-            color: #333;
+        }
+        .d-pad-btn:active {
+            background-color: rgba(150, 150, 150, 0.9);
         }
 
-        .cell:hover:empty {
-            background-color: #e0e0e0;
-        }
-
-        .cell.X {
-            color: #4CAF50; /* Green for X */
-        }
-
-        .cell.O {
-            color: #2196F3; /* Blue for O */
-        }
-
-        .game-controls {
-            margin-top: 20px;
+        /* Buttons (Top Left) */
+        #top-buttons {
+            position: absolute;
+            top: 10px;
+            left: 10px;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 5px;
+            pointer-events: auto;
         }
 
-        .game-controls button {
-            padding: 10px 20px;
-            font-size: 1em;
-            cursor: pointer;
+        .ui-button {
+            padding: 8px 15px;
+            background-color: #3f51b5;
+            color: white;
             border: none;
             border-radius: 5px;
-            transition: background-color 0.3s;
-            color: white;
-        }
-
-        #reset-button {
-            background-color: #ff9800;
-        }
-
-        #reset-button:hover {
-            background-color: #e68a00;
-        }
-        
-        #forfeit-button {
-            background-color: #f44336; /* Red for forfeit */
-        }
-
-        #forfeit-button:hover {
-            background-color: #d32f2f;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
         }
     </style>
 </head>
 <body>
 
-    <div id="game-info">
-        <p id="status-message">Connecting to game...</p>
-        <p id="player-status"></p>
-    </div>
+    <div id="game-container">
+        <div id="world">
+            </div>
+        
+        <div id="player-sprites-container"></div> 
 
-    <div id="game-board">
-        <div class="cell" data-index="0"></div>
-        <div class="cell" data-index="1"></div>
-        <div class="cell" data-index="2"></div>
-        <div class="cell" data-index="3"></div>
-        <div class="cell" data-index="4"></div>
-        <div class="cell" data-index="5"></div>
-        <div class="cell" data-index="6"></div>
-        <div class="cell" data-index="7"></div>
-        <div class="cell" data-index="8"></div>
-    </div>
+        <div id="ui-overlay">
+            
+            <div id="top-buttons">
+                <button id="profile-btn" class="ui-button">👤 Profile</button>
+                <button id="inventory-btn" class="ui-button">📦 Inventory</button>
+                <button id="crafting-btn" class="ui-button">🛠️ Craft</button>
+            </div>
 
-    <div class="game-controls">
-        <button id="reset-button" style="display: none;">Start New Game</button>
-        <button id="forfeit-button">Opponent Left / Pass Turn</button>
+            <div id="inventory-bar">
+                <div class="slot" data-index="0">Axe</div>
+                <div class="slot" data-index="1"></div>
+                <div class="slot" data-index="2"></div>
+                <div class="slot" data-index="3"></div>
+                <div class="slot" data-index="4"></div>
+            </div>
+
+            <div id="d-pad">
+                <div class="d-pad-btn" style="grid-column: 2; grid-row: 1;" data-action="up">▲</div>
+                <div class="d-pad-btn" style="grid-column: 1; grid-row: 2;" data-action="left">◀</div>
+                <div class="d-pad-btn" style="grid-column: 3; grid-row: 2;" data-action="right">▶</div>
+                <div class="d-pad-btn" style="grid-column: 2; grid-row: 3;" data-action="down">▼</div>
+            </div>
+            
+        </div>
     </div>
 
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
@@ -122,7 +197,6 @@
 
     <script>
         // --- 1. YOUR FIREBASE CONFIGURATION ---
-        // Your web app's Firebase configuration
         const firebaseConfig = {
           apiKey: "AIzaSyAMRPAoSdZgTBOKZkVpFoD8u8peIw8GcAg",
           authDomain: "tic-tac-toe-998c6.firebaseapp.com",
@@ -132,225 +206,286 @@
           messagingSenderId: "874071203416",
           appId: "1:874071203416:web:2b4eacc393270f2c8df42d"
         };
-
-        // Initialize Firebase
+        
         const app = firebase.initializeApp(firebaseConfig);
         const database = app.database();
         
-        // Use a fixed game ID for simplicity. All players use this game.
-        const GAME_REF = database.ref('tictactoe/game1');
+        // Firebase references for game data
+        const USERS_REF = database.ref('mcytcoder_users');
+        const PLAYERS_REF = database.ref('mcytcoder_game/players');
+        
+        let localUser = {
+            id: null,
+            username: 'Guest',
+            x: 0, 
+            y: 0, 
+            inventory: { Axe: 1, Dirt: 0, Stone: 0 }
+        };
 
-        // --- 2. GAME STATE VARIABLES ---
-        let localPlayer = null; // 'X' or 'O'
-        let board = Array(9).fill(null);
-        let isGameActive = false;
-        let currentPlayer = 'X';
+        // --- 2. GAME SETUP ---
+        const worldElement = document.getElementById('world');
+        const playerSpritesContainer = document.getElementById('player-sprites-container');
+        const WORLD_WIDTH = 16;
+        const WORLD_HEIGHT = 12;
+        const TILE_SIZE = window.innerWidth / WORLD_WIDTH; // Calculate tile size dynamically
+        const INVENTORY = localUser.inventory;
 
-        // --- 3. DOM ELEMENTS ---
-        const cells = document.querySelectorAll('.cell');
-        const statusMessage = document.getElementById('status-message');
-        const playerStatus = document.getElementById('player-status');
-        const resetButton = document.getElementById('reset-button');
-        const forfeitButton = document.getElementById('forfeit-button'); // NEW
-
-        // --- 4. FIREBASE LISTENERS (Multiplayer Logic) ---
-
-        // Listener for all game data updates
-        GAME_REF.on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                board = data.board || Array(9).fill(null);
-                isGameActive = data.isActive !== false; // Default to true
-                currentPlayer = data.currentPlayer || 'X';
-                
-                // Set local player assignment if not already set
-                if (!localPlayer) {
-                    assignPlayer(data.players);
-                }
-
-                updateUI();
-                checkWinner();
-            } else {
-                // If no game data exists, initialize a new game
-                initializeGame();
-            }
-        });
-
-        // --- 5. INITIALIZATION AND PLAYER ASSIGNMENT ---
-
-        // Assigns the local user as 'X' or 'O' based on available slots
-        function assignPlayer(playersData) {
-            const player1 = playersData ? playersData.player1 : null;
-            const player2 = playersData ? playersData.player2 : null;
-            const sessionId = getSessionId(); // Unique ID for this browser/device
-
-            if (player1 === sessionId) {
-                localPlayer = 'X';
-            } else if (player2 === sessionId) {
-                localPlayer = 'O';
-            } else if (!player1) {
-                // First player
-                localPlayer = 'X';
-                GAME_REF.child('players/player1').set(sessionId);
-            } else if (!player2) {
-                // Second player
-                localPlayer = 'O';
-                GAME_REF.child('players/player2').set(sessionId);
-            } else {
-                // Game is full (Spectator Mode)
-                localPlayer = null;
-            }
-
-            if (localPlayer) {
-                playerStatus.textContent = `You are Player: ${localPlayer}`;
-            } else {
-                playerStatus.textContent = 'Game is full. You are watching.';
-            }
-        }
-
-        // Gets a unique session ID for the user
-        function getSessionId() {
-            let id = localStorage.getItem('tictactoe_session_id');
-            if (!id) {
-                id = Math.random().toString(36).substring(2, 9) + Date.now();
-                localStorage.setItem('tictactoe_session_id', id);
-            }
-            return id;
-        }
-
-        // --- 6. GAME LOGIC ---
-
-        // Handles a click on a cell
-        function handleCellClick(e) {
-            const index = parseInt(e.target.dataset.index);
-
-            // Check if it's the player's turn, game is active, and cell is empty
-            if (isGameActive && localPlayer === currentPlayer && board[index] === null) {
-                
-                // Optimistically update the local board and UI
-                board[index] = localPlayer;
-                updateUI();
-
-                // Send the move to Firebase
-                GAME_REF.update({
-                    board: board,
-                    currentPlayer: currentPlayer === 'X' ? 'O' : 'X' // Switch player for next move
-                });
-            } else if (!isGameActive) {
-                alert('Game is over! Click "Start New Game" to reset.');
-            } else if (localPlayer !== currentPlayer) {
-                alert(`It's not your turn! Waiting for Player ${currentPlayer}...`);
-            } else if (!localPlayer) {
-                alert('You are a spectator. Cannot make a move.');
-            }
-        }
-
-        // Initializes a new game state in the database
-        function initializeGame() {
-            const newGameState = {
-                board: Array(9).fill(null),
-                isActive: true,
-                currentPlayer: 'X',
-                players: {} // Players will be assigned upon connecting
-            };
-            GAME_REF.set(newGameState);
-        }
-
-        // Checks for a winner and updates the game state
-        function checkWinner() {
-            const winningConditions = [
-                [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
-                [0, 3, 6], [1, 4, 7], [2, 5, 8], // Columns
-                [0, 4, 8], [2, 4, 6]             // Diagonals
-            ];
-
-            let winner = null;
-
-            for (let i = 0; i < winningConditions.length; i++) {
-                const [a, b, c] = winningConditions[i];
-                if (board[a] && board[a] === board[b] && board[a] === board[c]) {
-                    winner = board[a];
-                    break;
-                }
-            }
+        // Simple world generation
+        function generateWorld() {
+            worldElement.style.gridTemplateColumns = `repeat(${WORLD_WIDTH}, 1fr)`;
+            worldElement.style.gridTemplateRows = `repeat(${WORLD_HEIGHT}, 1fr)`;
             
-            const isBoardFull = board.every(cell => cell !== null);
+            for (let y = 0; y < WORLD_HEIGHT; y++) {
+                for (let x = 0; x < WORLD_WIDTH; x++) {
+                    const block = document.createElement('div');
+                    block.classList.add('block');
+                    block.dataset.x = x;
+                    block.dataset.y = y;
+                    
+                    let type;
+                    if (y < 4) {
+                        type = 'sky';
+                    } else if (y === 4) {
+                        type = 'grass';
+                    } else if (y < 7) {
+                        type = 'dirt';
+                    } else {
+                        type = 'stone';
+                    }
 
-            if (winner) {
-                statusMessage.textContent = `Player ${winner} wins! 🥳`;
-                // Only the winning player's client updates the database to end the game
-                if (localPlayer === winner && isGameActive) {
-                   GAME_REF.child('isActive').set(false);
+                    block.classList.add(type);
+                    block.dataset.type = type;
+                    worldElement.appendChild(block);
                 }
-                resetButton.style.display = 'block';
-
-            } else if (isBoardFull) {
-                statusMessage.textContent = 'Game is a Draw! 🤝';
-                // Any client can update the database to end the game on a draw
-                if (isGameActive) {
-                    GAME_REF.child('isActive').set(false);
-                }
-                resetButton.style.display = 'block';
-            } else if (isGameActive) {
-                statusMessage.textContent = `It's Player ${currentPlayer}'s turn.`;
-                resetButton.style.display = 'none';
-            } else {
-                statusMessage.textContent = 'Game is waiting for reset.';
-                resetButton.style.display = 'block';
             }
         }
 
-        // --- 7. UI UPDATE ---
+        // Helper to update player sprite position based on grid coordinates
+        function updatePlayerSprite(spriteElement, x, y) {
+            spriteElement.style.left = `${x * TILE_SIZE}px`;
+            spriteElement.style.top = `${y * TILE_SIZE}px`;
+        }
 
-        // Renders the board based on the current state
-        function updateUI() {
-            cells.forEach((cell, index) => {
-                const marker = board[index];
-                cell.textContent = marker;
-                cell.className = 'cell'; // Reset classes
-                if (marker) {
-                    cell.classList.add(marker);
+        // --- 3. FIREBASE / USER MANAGEMENT & MULTIPLAYER ---
+
+        function handleUserLogin() {
+            localUser.id = localStorage.getItem('mcyt_user_id') || USERS_REF.push().key;
+            localStorage.setItem('mcyt_user_id', localUser.id);
+            
+            // Check for existing profile
+            USERS_REF.child(localUser.id).once('value', (snapshot) => {
+                const userData = snapshot.val();
+                if (!userData || !userData.username) {
+                    promptForUsername();
+                } else {
+                    localUser.username = userData.username;
+                    // Initial position set for new session
+                    localUser.x = 2; 
+                    localUser.y = 3;
+                    
+                    // Set up player presence and initial position in the game world
+                    setupPlayerPresence();
+                    alert(`Welcome back, ${localUser.username}!`);
                 }
             });
         }
-
-        // --- 8. EVENT LISTENERS ---
-
-        cells.forEach(cell => cell.addEventListener('click', handleCellClick));
         
-        // Reset button only sets a new game state in Firebase (Only Player X or Spectator can do this)
-        resetButton.addEventListener('click', () => {
-             if (localPlayer === 'X' || !localPlayer) { 
-                initializeGame();
-            } else {
-                alert('Only Player X can start a new game.');
-            }
-        });
-
-        // NEW: Forfeit/Pass Turn button logic
-        forfeitButton.addEventListener('click', () => {
-            if (isGameActive && localPlayer) {
-                const confirmSkip = confirm(`Are you sure you want to pass the turn? Use this if your opponent has left or disconnected.`);
-
-                if (confirmSkip) {
-                    // Update Firebase to switch the current player
-                    const nextPlayer = currentPlayer === 'X' ? 'O' : 'X';
-                    GAME_REF.child('currentPlayer').set(nextPlayer)
-                        .then(() => {
-                            alert(`Turn successfully passed. It is now Player ${nextPlayer}'s turn.`);
-                        })
-                        .catch((error) => {
-                            console.error("Error skipping turn:", error);
-                            alert("Could not skip the turn. Check console for details.");
+        function promptForUsername() {
+            const newUsername = prompt("Please enter a unique username:", localUser.username);
+            if (newUsername && newUsername.trim() !== '') {
+                // Simple check for taken username
+                USERS_REF.orderByChild('username').equalTo(newUsername).once('value', (snapshot) => {
+                    if (snapshot.exists()) {
+                        alert("That username is already taken. Please try another.");
+                        promptForUsername();
+                    } else {
+                        localUser.username = newUsername;
+                        USERS_REF.child(localUser.id).set({
+                            username: newUsername,
+                            friends: {},
+                            createdAt: firebase.database.ServerValue.TIMESTAMP
                         });
+                        // Initial position set after successful username creation
+                        localUser.x = 2; 
+                        localUser.y = 3;
+                        setupPlayerPresence();
+                        alert(`Username set to: ${newUsername}`);
+                    }
+                });
+            } else {
+                // Fallback for guest, but multiplayer won't work well without ID/Name
+                localUser.id = 'guest_' + Math.random().toString(36).substring(2, 5);
+                localUser.x = 2; 
+                localUser.y = 3;
+                setupPlayerPresence();
+            }
+        }
+
+        function setupPlayerPresence() {
+            // Write current position to Firebase
+            PLAYERS_REF.child(localUser.id).set({
+                username: localUser.username,
+                x: localUser.x,
+                y: localUser.y
+            });
+
+            // Remove player data when they disconnect (browser close/refresh)
+            PLAYERS_REF.child(localUser.id).onDisconnect().remove();
+            
+            // Start listening for all player updates
+            listenForOtherPlayers();
+        }
+
+        function listenForOtherPlayers() {
+            PLAYERS_REF.on('value', (snapshot) => {
+                playerSpritesContainer.innerHTML = ''; // Clear all sprites
+
+                snapshot.forEach((childSnapshot) => {
+                    const player = childSnapshot.val();
+                    const playerId = childSnapshot.key;
+                    
+                    const spriteId = `sprite-${playerId}`;
+                    let spriteElement = document.getElementById(spriteId);
+                    
+                    if (!spriteElement) {
+                        spriteElement = document.createElement('div');
+                        spriteElement.id = spriteId;
+                        spriteElement.classList.add('player-sprite');
+                        playerSpritesContainer.appendChild(spriteElement);
+                        
+                        const label = document.createElement('div');
+                        label.classList.add('player-label');
+                        label.textContent = player.username;
+                        spriteElement.appendChild(label);
+                        
+                        // Highlight local player
+                        if (playerId === localUser.id) {
+                             spriteElement.style.borderColor = 'yellow';
+                        }
+                    }
+                    
+                    // Update sprite position
+                    updatePlayerSprite(spriteElement, player.x, player.y);
+                });
+            });
+        }
+
+        // --- 4. PLAYER MOVEMENT & GAME ACTIONS ---
+
+        // Function to move the player
+        function movePlayer(dx, dy) {
+            const newX = Math.max(0, Math.min(WORLD_WIDTH - 1, localUser.x + dx));
+            const newY = Math.max(0, Math.min(WORLD_HEIGHT - 1, localUser.y + dy));
+            
+            // Simple boundary check (no collision with blocks yet)
+            if (newX !== localUser.x || newY !== localUser.y) {
+                localUser.x = newX;
+                localUser.y = newY;
+                
+                // Update Firebase
+                PLAYERS_REF.child(localUser.id).update({
+                    x: localUser.x,
+                    y: localUser.y
+                });
+            }
+        }
+
+        // Handles a click on a block to "mine"
+        worldElement.addEventListener('click', (e) => {
+            const targetBlock = e.target;
+            if (targetBlock.classList.contains('block')) {
+                mineBlock(targetBlock);
+            }
+        });
+
+        function mineBlock(blockElement) {
+            const blockType = blockElement.dataset.type;
+            
+            if (blockType !== 'sky') {
+                // Check if player is adjacent to the block (simple mining check)
+                const blockX = parseInt(blockElement.dataset.x);
+                const blockY = parseInt(blockElement.dataset.y);
+                const isAdjacent = (Math.abs(localUser.x - blockX) <= 1 && Math.abs(localUser.y - blockY) <= 1);
+                
+                if (isAdjacent) {
+                    // Mining Simulation
+                    blockElement.classList.remove(blockType);
+                    blockElement.classList.add('sky');
+                    blockElement.dataset.type = 'sky';
+
+                    // Add item to Inventory
+                    if (INVENTORY[blockType] !== undefined) {
+                        INVENTORY[blockType]++;
+                    } else {
+                        INVENTORY[blockType] = 1;
+                    }
+                    
+                    updateInventoryUI();
+                    console.log(`Mined 1 ${blockType}.`);
+                } else {
+                    alert("You must be closer to the block to mine it!");
                 }
-            } else if (!isGameActive) {
-                alert('The game is over. Click "Start New Game" to reset.');
-            } else if (!localPlayer) {
-                alert('You are a spectator and cannot change the game state.');
+            }
+        }
+        
+        // --- 5. UI/INVENTORY LOGIC ---
+
+        const inventorySlots = document.querySelectorAll('.slot');
+
+        function updateInventoryUI() {
+            inventorySlots.forEach((slot, index) => {
+                const itemKeys = Object.keys(INVENTORY).filter(key => INVENTORY[key] > 0);
+                const itemName = itemKeys[index];
+                
+                if (itemName) {
+                    slot.textContent = `${itemName.substring(0, 1).toUpperCase()} (${INVENTORY[itemName]})`;
+                } else {
+                    slot.textContent = '';
+                }
+            });
+        }
+        
+        // --- 6. BUTTON HANDLERS ---
+
+        document.getElementById('profile-btn').addEventListener('click', () => {
+            alert(`
+                --- Your Profile ---
+                Username: ${localUser.username}
+                X/Y: ${localUser.x}/${localUser.y}
+                (Future: Send/Accept Friend Requests here)
+            `);
+        });
+
+        document.getElementById('inventory-btn').addEventListener('click', () => {
+            const items = Object.keys(INVENTORY).map(key => `${key}: ${INVENTORY[key]}`).join('\n');
+            alert(`
+                --- Inventory ---
+                ${items || 'Empty! Go mining.'}
+            `);
+        });
+
+        document.getElementById('crafting-btn').addEventListener('click', () => {
+            alert("Crafting System: Placeholder.");
+        });
+
+        // D-Pad Handler (Movement)
+        document.getElementById('d-pad').addEventListener('click', (e) => {
+            const action = e.target.dataset.action;
+            if (!action) return;
+            
+            switch(action) {
+                case 'up': movePlayer(0, -1); break;
+                case 'down': movePlayer(0, 1); break;
+                case 'left': movePlayer(-1, 0); break;
+                case 'right': movePlayer(1, 0); break;
             }
         });
         
+        // --- 7. INITIALIZATION ---
+
+        generateWorld();
+        handleUserLogin();
+        updateInventoryUI();
     </script>
 </body>
 </html>
