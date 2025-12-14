@@ -42,165 +42,163 @@ import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/1
 import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, collection, addDoc, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-storage.js";
 
-// Firebase config
-const firebaseConfig = {
-  apiKey: "AIzaSyDpP_gRTAEwXdbGlNpHenJvEvNVyARwHzg",
-  authDomain: "vxyo-chat.firebaseapp.com",
-  projectId: "vxyo-chat",
-  storageBucket: "vxyo-chat.firebasestorage.app",
-  messagingSenderId: "497737291156",
-  appId: "1:497737291156:web:9dfeed0e4b227750ebeb81",
-  measurementId: "G-RJJ372P012"
-};
+async function init() {
+  // Firebase config
+  const firebaseConfig = {
+    apiKey: "AIzaSyDpP_gRTAEwXdbGlNpHenJvEvNVyARwHzg",
+    authDomain: "vxyo-chat.firebaseapp.com",
+    projectId: "vxyo-chat",
+    storageBucket: "vxyo-chat.firebasestorage.app",
+    messagingSenderId: "497737291156",
+    appId: "1:497737291156:web:9dfeed0e4b227750ebeb81",
+    measurementId: "G-RJJ372P012"
+  };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth();
-const db = getFirestore();
-const storage = getStorage();
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth();
+  const db = getFirestore();
+  const storage = getStorage();
 
-// --- Anonymous login ---
-signInAnonymously(auth).catch(console.error);
+  // Anonymous login
+  signInAnonymously(auth).catch(console.error);
 
-// --- Random username ---
-let username = localStorage.getItem('vyxoUsername');
-function generateUsername() { return "VyXo_" + Math.floor(Math.random()*100000); }
-if (!username) {
-  username = generateUsername();
-  localStorage.setItem('vyxoUsername', username);
-  await setDoc(doc(db, "users", username), { displayName:"Chahi", profilePic:"", friends:[], requests:[] });
-}
+  // Random username
+  let username = localStorage.getItem('vyxoUsername');
+  function generateUsername() { return "VyXo_" + Math.floor(Math.random()*100000); }
+  if(!username){
+    username = generateUsername();
+    localStorage.setItem('vyxoUsername', username);
+    await setDoc(doc(db, "users", username), { displayName:"Chahi", profilePic:"", friends:[], requests:[] });
+  }
 
-// --- Profile section ---
-const profilePic = document.getElementById('profilePic');
-const displayName = document.getElementById('displayName');
-const usernameDisplay = document.getElementById('usernameDisplay');
-usernameDisplay.textContent = username;
+  // Profile elements
+  const profilePic = document.getElementById('profilePic');
+  const displayName = document.getElementById('displayName');
+  const usernameDisplay = document.getElementById('usernameDisplay');
+  usernameDisplay.textContent = username;
+  const userDocRef = doc(db, "users", username);
 
-const userDocRef = doc(db, "users", username);
-const userSnap = await getDoc(userDocRef);
-if (userSnap.exists()) {
-  const data = userSnap.data();
-  displayName.value = data.displayName || "Chahi";
-  if (data.profilePic) profilePic.src = data.profilePic;
-}
+  const userSnap = await getDoc(userDocRef);
+  if(userSnap.exists()){
+    const data = userSnap.data();
+    displayName.value = data.displayName || "Chahi";
+    if(data.profilePic) profilePic.src = data.profilePic;
+  }
 
-// Change profile pic
-profilePic.addEventListener('click', ()=>{
-  const input = document.createElement('input');
-  input.type='file'; input.accept='image/*'; input.click();
-  input.onchange = async ()=>{
-    const file = input.files[0];
-    const storageRef = ref(storage, 'profiles/'+username+'/'+file.name);
+  profilePic.addEventListener('click', ()=>{
+    const input = document.createElement('input');
+    input.type='file'; input.accept='image/*'; input.click();
+    input.onchange = async ()=>{
+      const file = input.files[0];
+      const storageRef = ref(storage, 'profiles/'+username+'/'+file.name);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      profilePic.src = url;
+      await updateDoc(userDocRef, { profilePic:url });
+    };
+  });
+
+  document.getElementById('saveProfile').addEventListener('click', async ()=>{
+    await updateDoc(userDocRef, { displayName:displayName.value });
+  });
+
+  // Friends & requests
+  const requestsList = document.getElementById('requestsList');
+  const friendsList = document.getElementById('friendsList');
+
+  function renderRequests(reqUser){
+    const div = document.createElement('div');
+    div.classList.add('request');
+    div.textContent = reqUser;
+    const acceptBtn = document.createElement('button');
+    acceptBtn.textContent = 'Accept';
+    div.appendChild(acceptBtn);
+    requestsList.appendChild(div);
+
+    acceptBtn.addEventListener('click', async ()=>{
+      const userDoc = await getDoc(userDocRef);
+      const userData = userDoc.data();
+      const friendDocRef = doc(db, "users", reqUser);
+      const friendDoc = await getDoc(friendDocRef);
+      const friendData = friendDoc.data();
+
+      await updateDoc(userDocRef, { friends:[...userData.friends, reqUser], requests:userData.requests.filter(r=>r!==reqUser) });
+      await updateDoc(friendDocRef, { friends:[...friendData.friends, username] });
+
+      div.remove();
+      renderFriends(reqUser);
+    });
+  }
+
+  function renderFriends(friendUser){
+    const div = document.createElement('div');
+    div.classList.add('friend');
+    div.textContent = friendUser;
+    friendsList.appendChild(div);
+    div.addEventListener('click', ()=>{
+      activeFriend = friendUser;
+      chatMessages.innerHTML = '';
+      loadChat(activeFriend);
+    });
+  }
+
+  onSnapshot(doc(db, "users", username), (docSnap)=>{
+    requestsList.innerHTML = "<h3>Requests</h3>";
+    const data = docSnap.data();
+    if(data.requests) data.requests.forEach(r=> renderRequests(r));
+    friendsList.innerHTML = "<h3>Friends</h3>";
+    if(data.friends) data.friends.forEach(f=> renderFriends(f));
+  });
+
+  // Chat
+  let activeFriend = null;
+  const chatMessages = document.getElementById('chatMessages');
+  const chatInput = document.getElementById('chatInput');
+  const sendMsgBtn = document.getElementById('sendMsg');
+  const chatImageInput = document.getElementById('chatImageInput');
+
+  async function loadChat(friend){
+    const chatId = [username, friend].sort().join("_");
+    const msgsQuery = query(collection(db, "messages", chatId, "msgs"), orderBy("timestamp"));
+    onSnapshot(msgsQuery, snapshot=>{
+      chatMessages.innerHTML = '';
+      snapshot.forEach(docSnap=>{
+        const msg = docSnap.data();
+        const div = document.createElement('div');
+        div.classList.add('message');
+        if(msg.type==='text') div.textContent = `${msg.from}: ${msg.text}`;
+        if(msg.type==='image'){
+          const img = document.createElement('img');
+          img.src = msg.url; img.style.maxWidth='150px';
+          div.appendChild(document.createTextNode(msg.from+": "));
+          div.appendChild(img);
+        }
+        chatMessages.appendChild(div);
+      });
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    });
+  }
+
+  sendMsgBtn.addEventListener('click', async ()=>{
+    if(!activeFriend) return alert("Select a friend to chat");
+    const chatId = [username, activeFriend].sort().join("_");
+    await addDoc(collection(db, "messages", chatId, "msgs"), { from:username, text:chatInput.value, type:'text', timestamp:serverTimestamp() });
+    chatInput.value = '';
+  });
+
+  chatImageInput.addEventListener('change', async ()=>{
+    if(!activeFriend) return alert("Select a friend to chat");
+    const file = chatImageInput.files[0];
+    const storageRef = ref(storage, 'chats/'+username+'_'+activeFriend+'/'+file.name);
     await uploadBytes(storageRef, file);
     const url = await getDownloadURL(storageRef);
-    profilePic.src = url;
-    await updateDoc(userDocRef, { profilePic:url });
-  };
-});
-
-// Save display name
-document.getElementById('saveProfile').addEventListener('click', async ()=>{
-  await updateDoc(userDocRef, { displayName:displayName.value });
-});
-
-// --- Friends & Requests ---
-const requestsList = document.getElementById('requestsList');
-const friendsList = document.getElementById('friendsList');
-
-function renderRequests(reqUser){
-  const div = document.createElement('div');
-  div.classList.add('request');
-  div.textContent = reqUser;
-  const acceptBtn = document.createElement('button');
-  acceptBtn.textContent = 'Accept';
-  div.appendChild(acceptBtn);
-  requestsList.appendChild(div);
-
-  acceptBtn.addEventListener('click', async ()=>{
-    const userDoc = await getDoc(userDocRef);
-    const userData = userDoc.data();
-    const friendDocRef = doc(db, "users", reqUser);
-    const friendDoc = await getDoc(friendDocRef);
-    const friendData = friendDoc.data();
-
-    await updateDoc(userDocRef, { friends: [...userData.friends, reqUser], requests: userData.requests.filter(r=>r!==reqUser) });
-    await updateDoc(friendDocRef, { friends: [...friendData.friends, username] });
-
-    div.remove();
-    renderFriends(reqUser);
+    const chatId = [username, activeFriend].sort().join("_");
+    await addDoc(collection(db, "messages", chatId, "msgs"), { from:username, url:url, type:'image', timestamp:serverTimestamp() });
   });
 }
 
-function renderFriends(friendUser){
-  const div = document.createElement('div');
-  div.classList.add('friend');
-  div.textContent = friendUser;
-  friendsList.appendChild(div);
-
-  div.addEventListener('click', ()=>{
-    activeFriend = friendUser;
-    chatMessages.innerHTML = '';
-    loadChat(activeFriend);
-  });
-}
-
-// Listen for updates
-onSnapshot(doc(db, "users", username), (docSnap)=>{
-  requestsList.innerHTML = "<h3>Requests</h3>";
-  const data = docSnap.data();
-  if(data.requests) data.requests.forEach(r=> renderRequests(r));
-  friendsList.innerHTML = "<h3>Friends</h3>";
-  if(data.friends) data.friends.forEach(f=> renderFriends(f));
-});
-
-// --- Chat ---
-let activeFriend = null;
-const chatMessages = document.getElementById('chatMessages');
-const chatInput = document.getElementById('chatInput');
-const sendMsgBtn = document.getElementById('sendMsg');
-const chatImageInput = document.getElementById('chatImageInput');
-
-async function loadChat(friend){
-  const chatId = [username, friend].sort().join("_");
-  const msgsQuery = query(collection(db, "messages", chatId, "msgs"), orderBy("timestamp"));
-  onSnapshot(msgsQuery, snapshot=>{
-    chatMessages.innerHTML = '';
-    snapshot.forEach(docSnap=>{
-      const msg = docSnap.data();
-      const div = document.createElement('div');
-      div.classList.add('message');
-      if(msg.type==='text') div.textContent = `${msg.from}: ${msg.text}`;
-      if(msg.type==='image'){
-        const img = document.createElement('img');
-        img.src = msg.url; img.style.maxWidth='150px';
-        div.appendChild(document.createTextNode(msg.from+": "));
-        div.appendChild(img);
-      }
-      chatMessages.appendChild(div);
-    });
-    chatMessages.scrollTop = chatMessages.scrollHeight;
-  });
-}
-
-// Send text
-sendMsgBtn.addEventListener('click', async ()=>{
-  if(!activeFriend) return alert("Select a friend to chat");
-  const chatId = [username, activeFriend].sort().join("_");
-  await addDoc(collection(db, "messages", chatId, "msgs"), { from:username, text:chatInput.value, type:'text', timestamp:serverTimestamp() });
-  chatInput.value = '';
-});
-
-// Send image
-chatImageInput.addEventListener('change', async ()=>{
-  if(!activeFriend) return alert("Select a friend to chat");
-  const file = chatImageInput.files[0];
-  const storageRef = ref(storage, 'chats/'+username+'_'+activeFriend+'/'+file.name);
-  await uploadBytes(storageRef, file);
-  const url = await getDownloadURL(storageRef);
-  const chatId = [username, activeFriend].sort().join("_");
-  await addDoc(collection(db, "messages", chatId, "msgs"), { from:username, url:url, type:'image', timestamp:serverTimestamp() });
-});
+init();
 </script>
 
 </body>
