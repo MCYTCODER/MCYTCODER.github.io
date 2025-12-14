@@ -3,273 +3,205 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VyXo Social Chat</title>
+<title>VyXo Chat</title>
 <style>
-body{margin:0;font-family:Arial,sans-serif;background:#181818;color:#F1F1F1;}
-header{padding:15px;background:#00C4FF;text-align:center;font-weight:bold;}
-#container{display:flex;height:calc(100vh-50px);}
-#sidebar{width:250px;background:#202020;padding:10px;overflow-y:auto;}
-#chatContainer{flex:1;display:flex;flex-direction:column;}
-#chat{flex:1;overflow-y:auto;padding:10px;}
-#inputContainer{display:flex;padding:10px;background:#202020;}
-input,button{padding:10px;margin:5px;border-radius:8px;border:none;}
-input[type="text"]{flex:1;}
-.friendBtn{margin:2px;background:#FF6D1F;color:#fff;cursor:pointer;}
-#profile img{width:100px;height:100px;border-radius:50%;cursor:pointer;}
+  body { font-family: Arial, sans-serif; background:#181818; color:#F1F1F1; margin:0; padding:0; }
+  #profileSection { padding: 20px; display:flex; align-items:center; gap:10px; background:#202020; }
+  #profilePic { width:50px; height:50px; border-radius:50%; cursor:pointer; }
+  #displayName { padding:5px; }
+  button { padding:5px 10px; background:#00C4FF; color:#fff; border:none; border-radius:4px; cursor:pointer; }
+  #friendsList, #requestsList, #chat { padding:20px; background:#202020; margin:10px; border-radius:8px; }
+  .friend, .request { display:flex; justify-content:space-between; align-items:center; margin:5px 0; }
+  .red-dot { width:10px; height:10px; background:red; border-radius:50%; display:inline-block; margin-left:5px; }
+  #chatMessages { max-height:300px; overflow-y:auto; border:1px solid #444; padding:10px; margin-bottom:10px; }
+  .message { margin:5px 0; }
 </style>
 </head>
 <body>
 
-<header>VyXo Chat</header>
-
-<div id="container">
-  <div id="sidebar">
-    <h3>Profile</h3>
-    <div id="profile">
-      <img id="profilePic" src="https://via.placeholder.com/100">
-      <input type="text" id="displayName" placeholder="Display Name">
-      <button id="saveProfile">Save</button>
-      <p>Username: <span id="usernameDisplay"></span></p>
-    </div>
-    <h3>Friends</h3>
-    <div id="friendsList"></div>
-    <h3>Requests</h3>
-    <div id="requestsList"></div>
-    <h3>Add Friend</h3>
-    <input type="text" id="addFriendInput" placeholder="Username">
-    <button id="addFriendBtn">Send Request</button>
-  </div>
-  <div id="chatContainer">
-    <div id="chat"></div>
-    <div id="inputContainer">
-      <input type="text" id="messageInput" placeholder="Type a message...">
-      <button id="sendBtn">Send</button>
-      <button id="imgBtn">📷</button>
-      <button id="voiceBtn">🎤</button>
-    </div>
-  </div>
+<div id="profileSection">
+  <img id="profilePic" src="" alt="Profile Pic">
+  <input id="displayName" placeholder="Chahi">
+  <span id="usernameDisplay"></span>
+  <button id="saveProfile">Save Profile</button>
 </div>
 
-<!-- Firebase SDK -->
-<script src="https://www.gstatic.com/firebasejs/10.3.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.3.1/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.3.1/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.3.1/firebase-storage-compat.js"></script>
+<div id="requestsList"><h3>Requests</h3></div>
+<div id="friendsList"><h3>Friends</h3></div>
+<div id="chat">
+  <h3>Chat</h3>
+  <div id="chatMessages"></div>
+  <input id="chatInput" placeholder="Type a message">
+  <button id="sendMsg">Send</button>
+  <input type="file" id="chatImageInput" accept="image/*">
+</div>
 
-<script>
-// --- Firebase config ---
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, updateDoc, onSnapshot, collection, addDoc, query, orderBy, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-firestore.js";
+import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-storage.js";
+
+// Firebase config
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "SENDER_ID",
-  appId: "APP_ID"
+  apiKey: "AIzaSyDpP_gRTAEwXdbGlNpHenJvEvNVyARwHzg",
+  authDomain: "vxyo-chat.firebaseapp.com",
+  projectId: "vxyo-chat",
+  storageBucket: "vxyo-chat.firebasestorage.app",
+  messagingSenderId: "497737291156",
+  appId: "1:497737291156:web:9dfeed0e4b227750ebeb81",
+  measurementId: "G-RJJ372P012"
 };
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.firestore();
-const storage = firebase.storage();
 
-// --- User login ---
-auth.signInAnonymously().catch(console.error);
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const auth = getAuth();
+const db = getFirestore();
+const storage = getStorage();
 
-// --- Random unique username ---
-function generateUsername(){return "VyXo_"+Math.floor(Math.random()*100000);}
+// --- Anonymous login ---
+signInAnonymously(auth).catch(console.error);
+
+// --- Random username ---
 let username = localStorage.getItem('vyxoUsername');
-if(!username){
+function generateUsername() { return "VyXo_" + Math.floor(Math.random()*100000); }
+if (!username) {
   username = generateUsername();
   localStorage.setItem('vyxoUsername', username);
-  db.collection('users').doc(username).set({
-    displayName:"Chahi",
-    profilePic:"",
-    friends:[],
-    requests:[]
-  });
+  await setDoc(doc(db, "users", username), { displayName:"Chahi", profilePic:"", friends:[], requests:[] });
 }
 
-// --- Profile setup ---
+// --- Profile section ---
 const profilePic = document.getElementById('profilePic');
 const displayName = document.getElementById('displayName');
 const usernameDisplay = document.getElementById('usernameDisplay');
 usernameDisplay.textContent = username;
 
-// Load profile
-db.collection('users').doc(username).get().then(doc=>{
-  if(doc.exists){
-    const data = doc.data();
-    displayName.value = data.displayName || "Chahi";
-    if(data.profilePic) profilePic.src = data.profilePic;
-  }
-});
+const userDocRef = doc(db, "users", username);
+const userSnap = await getDoc(userDocRef);
+if (userSnap.exists()) {
+  const data = userSnap.data();
+  displayName.value = data.displayName || "Chahi";
+  if (data.profilePic) profilePic.src = data.profilePic;
+}
 
 // Change profile pic
-profilePic.addEventListener('click',()=>{
+profilePic.addEventListener('click', ()=>{
   const input = document.createElement('input');
   input.type='file'; input.accept='image/*'; input.click();
   input.onchange = async ()=>{
     const file = input.files[0];
-    const ref = storage.ref('profiles/'+username+'/'+file.name);
-    await ref.put(file);
-    const url = await ref.getDownloadURL();
+    const storageRef = ref(storage, 'profiles/'+username+'/'+file.name);
+    await uploadBytes(storageRef, file);
+    const url = await getDownloadURL(storageRef);
     profilePic.src = url;
-    await db.collection('users').doc(username).update({profilePic:url});
+    await updateDoc(userDocRef, { profilePic:url });
   };
 });
 
 // Save display name
-document.getElementById('saveProfile').addEventListener('click',()=>{
-  db.collection('users').doc(username).update({displayName: displayName.value});
+document.getElementById('saveProfile').addEventListener('click', async ()=>{
+  await updateDoc(userDocRef, { displayName:displayName.value });
 });
 
-// --- Add friend request ---
-document.getElementById('addFriendBtn').addEventListener('click', async ()=>{
-  const friendName = document.getElementById('addFriendInput').value;
-  if(!friendName || friendName===username) return alert("Invalid username");
-  const friendDoc = await db.collection('users').doc(friendName).get();
-  if(!friendDoc.exists) return alert("User does not exist");
-  let requests = friendDoc.data().requests || [];
-  if(requests.find(r=>r.name===username)) return alert("Request already sent");
-  requests.push({name:username, unread:true});
-  await db.collection('users').doc(friendName).update({requests});
-  alert("Friend request sent!");
-});
-
-// --- Render requests with red dot and accept ---
+// --- Friends & Requests ---
 const requestsList = document.getElementById('requestsList');
-function renderRequests(requests){
-  requestsList.innerHTML="";
-  requests.forEach(req=>{
-    const div = document.createElement('div');
-    div.style.display='flex'; div.style.justifyContent='space-between'; div.style.alignItems='center';
+const friendsList = document.getElementById('friendsList');
 
-    const nameSpan = document.createElement('span');
-    nameSpan.textContent = req.name;
-    if(req.unread){
-      const redDot = document.createElement('span');
-      redDot.style.width='10px'; redDot.style.height='10px';
-      redDot.style.background='red'; redDot.style.borderRadius='50%';
-      redDot.style.display='inline-block'; redDot.style.marginRight='5px';
-      nameSpan.prepend(redDot);
-    }
-    div.appendChild(nameSpan);
+function renderRequests(reqUser){
+  const div = document.createElement('div');
+  div.classList.add('request');
+  div.textContent = reqUser;
+  const acceptBtn = document.createElement('button');
+  acceptBtn.textContent = 'Accept';
+  div.appendChild(acceptBtn);
+  requestsList.appendChild(div);
 
-    const acceptBtn = document.createElement('button');
-    acceptBtn.textContent='Accept'; acceptBtn.className='friendBtn';
-    acceptBtn.addEventListener('click', async ()=>{
-      const userRef = db.collection('users').doc(username);
-      const friendRef = db.collection('users').doc(req.name);
-      await db.runTransaction(async t=>{
-        const userDoc = await t.get(userRef);
-        const friendDoc = await t.get(friendRef);
+  acceptBtn.addEventListener('click', async ()=>{
+    const userDoc = await getDoc(userDocRef);
+    const userData = userDoc.data();
+    const friendDocRef = doc(db, "users", reqUser);
+    const friendDoc = await getDoc(friendDocRef);
+    const friendData = friendDoc.data();
 
-        let userFriends = userDoc.data().friends || [];
-        let friendFriends = friendDoc.data().friends || [];
+    await updateDoc(userDocRef, { friends: [...userData.friends, reqUser], requests: userData.requests.filter(r=>r!==reqUser) });
+    await updateDoc(friendDocRef, { friends: [...friendData.friends, username] });
 
-        if(!userFriends.includes(req.name)) userFriends.push(req.name);
-        if(!friendFriends.includes(username)) friendFriends.push(username);
-
-        // Remove request
-        const updatedRequests = (userDoc.data().requests || []).filter(r=>r.name!==req.name);
-        t.update(userRef, {friends:userFriends, requests:updatedRequests});
-        t.update(friendRef, {friends:friendFriends});
-      });
-    });
-    div.appendChild(acceptBtn);
-    requestsList.appendChild(div);
+    div.remove();
+    renderFriends(reqUser);
   });
 }
 
-// Real-time requests update
-db.collection('users').doc(username).onSnapshot(doc=>{
-  const data = doc.data();
-  renderRequests(data.requests || []);
-});
+function renderFriends(friendUser){
+  const div = document.createElement('div');
+  div.classList.add('friend');
+  div.textContent = friendUser;
+  friendsList.appendChild(div);
 
-// --- Friends list ---
-const friendsList = document.getElementById('friendsList');
-let activeFriend=null;
-db.collection('users').doc(username).onSnapshot(doc=>{
-  friendsList.innerHTML="";
-  const friends = doc.data().friends || [];
-  friends.forEach(f=>{
-    const div = document.createElement('div');
-    div.textContent=f; div.className='friendBtn';
-    div.onclick = ()=>{ activeFriend=f; loadChat(f); };
-    friendsList.appendChild(div);
+  div.addEventListener('click', ()=>{
+    activeFriend = friendUser;
+    chatMessages.innerHTML = '';
+    loadChat(activeFriend);
   });
+}
+
+// Listen for updates
+onSnapshot(doc(db, "users", username), (docSnap)=>{
+  requestsList.innerHTML = "<h3>Requests</h3>";
+  const data = docSnap.data();
+  if(data.requests) data.requests.forEach(r=> renderRequests(r));
+  friendsList.innerHTML = "<h3>Friends</h3>";
+  if(data.friends) data.friends.forEach(f=> renderFriends(f));
 });
 
 // --- Chat ---
-const chatDiv = document.getElementById('chat');
-document.getElementById('sendBtn').addEventListener('click', async ()=>{
-  if(!activeFriend) return alert("Select a friend!");
-  const text = document.getElementById('messageInput').value;
-  if(!text) return;
-  const chatId = [username, activeFriend].sort().join("_");
-  await db.collection('messages').doc(chatId).collection('msgs').add({
-    from:username, text, type:'text', timestamp: firebase.firestore.FieldValue.serverTimestamp()
-  });
-  document.getElementById('messageInput').value="";
-});
+let activeFriend = null;
+const chatMessages = document.getElementById('chatMessages');
+const chatInput = document.getElementById('chatInput');
+const sendMsgBtn = document.getElementById('sendMsg');
+const chatImageInput = document.getElementById('chatImageInput');
 
-// --- Load chat ---
-function loadChat(friend){
-  const chatId=[username,friend].sort().join("_");
-  db.collection('messages').doc(chatId).collection('msgs')
-    .orderBy('timestamp')
-    .onSnapshot(snapshot=>{
-      chatDiv.innerHTML="";
-      snapshot.forEach(doc=>{
-        const msg=doc.data();
-        const div=document.createElement('div');
-        div.innerHTML=`<b>${msg.from}:</b> ${msg.text}`;
-        chatDiv.appendChild(div);
-      });
-      chatDiv.scrollTop=chatDiv.scrollHeight;
+async function loadChat(friend){
+  const chatId = [username, friend].sort().join("_");
+  const msgsQuery = query(collection(db, "messages", chatId, "msgs"), orderBy("timestamp"));
+  onSnapshot(msgsQuery, snapshot=>{
+    chatMessages.innerHTML = '';
+    snapshot.forEach(docSnap=>{
+      const msg = docSnap.data();
+      const div = document.createElement('div');
+      div.classList.add('message');
+      if(msg.type==='text') div.textContent = `${msg.from}: ${msg.text}`;
+      if(msg.type==='image'){
+        const img = document.createElement('img');
+        img.src = msg.url; img.style.maxWidth='150px';
+        div.appendChild(document.createTextNode(msg.from+": "));
+        div.appendChild(img);
+      }
+      chatMessages.appendChild(div);
     });
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  });
 }
 
-// --- Image upload ---
-document.getElementById('imgBtn').addEventListener('click', async ()=>{
-  if(!activeFriend) return alert("Select a friend!");
-  const fileInput = document.createElement('input');
-  fileInput.type='file'; fileInput.accept='image/*'; fileInput.click();
-  fileInput.onchange=async ()=>{
-    const file=fileInput.files[0];
-    const ref = storage.ref('chatImages/'+Date.now()+file.name);
-    await ref.put(file);
-    const url = await ref.getDownloadURL();
-    const chatId=[username,activeFriend].sort().join("_");
-    await db.collection('messages').doc(chatId).collection('msgs').add({
-      from:username, image:url, type:'image', timestamp:firebase.firestore.FieldValue.serverTimestamp()
-    });
-  };
+// Send text
+sendMsgBtn.addEventListener('click', async ()=>{
+  if(!activeFriend) return alert("Select a friend to chat");
+  const chatId = [username, activeFriend].sort().join("_");
+  await addDoc(collection(db, "messages", chatId, "msgs"), { from:username, text:chatInput.value, type:'text', timestamp:serverTimestamp() });
+  chatInput.value = '';
 });
 
-// --- Voice messages ---
-let mediaRecorder, audioChunks=[];
-document.getElementById('voiceBtn').addEventListener('mousedown', async ()=>{
-  if(!activeFriend) return alert("Select a friend!");
-  const stream = await navigator.mediaDevices.getUserMedia({audio:true});
-  mediaRecorder = new MediaRecorder(stream);
-  audioChunks=[];
-  mediaRecorder.ondataavailable=e=>audioChunks.push(e.data);
-  mediaRecorder.start();
-});
-document.getElementById('voiceBtn').addEventListener('mouseup', async ()=>{
-  mediaRecorder.stop();
-  mediaRecorder.onstop=async ()=>{
-    const blob=new Blob(audioChunks,{type:'audio/webm'});
-    const ref = storage.ref('chatVoice/'+Date.now()+'.webm');
-    await ref.put(blob);
-    const url = await ref.getDownloadURL();
-    const chatId=[username,activeFriend].sort().join("_");
-    await db.collection('messages').doc(chatId).collection('msgs').add({
-      from:username, voice:url, type:'voice', timestamp:firebase.firestore.FieldValue.serverTimestamp()
-    });
-  };
+// Send image
+chatImageInput.addEventListener('change', async ()=>{
+  if(!activeFriend) return alert("Select a friend to chat");
+  const file = chatImageInput.files[0];
+  const storageRef = ref(storage, 'chats/'+username+'_'+activeFriend+'/'+file.name);
+  await uploadBytes(storageRef, file);
+  const url = await getDownloadURL(storageRef);
+  const chatId = [username, activeFriend].sort().join("_");
+  await addDoc(collection(db, "messages", chatId, "msgs"), { from:username, url:url, type:'image', timestamp:serverTimestamp() });
 });
 </script>
+
 </body>
 </html>
